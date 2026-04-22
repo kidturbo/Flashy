@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashy — Tool Instructions (v1.4.0)</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --accent: #0f3460;
+    --highlight: #e94560;
+    --text: #e0e0e0;
+    --text-dim: #a0a0b0;
+    --green: #4ecca3;
+    --yellow: #f0c040;
+    --cyan: #00d2ff;
+    --orange: #ff8c42;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    text-align: center;
+    color: var(--cyan);
+    font-size: 2em;
+    margin-bottom: 0.3em;
+    text-shadow: 0 0 20px rgba(0,210,255,0.3);
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    margin-bottom: 2em;
+    font-size: 1.1em;
+  }
+  h2 {
+    color: var(--cyan);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 8px;
+    margin: 1.5em 0 0.8em;
+    font-size: 1.4em;
+  }
+  h3 {
+    color: var(--green);
+    margin: 1em 0 0.5em;
+    font-size: 1.15em;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 20px 25px;
+    margin: 15px 0;
+    border-left: 4px solid var(--accent);
+  }
+  .card.full  { border-left-color: var(--cyan); }
+  .card.cal   { border-left-color: var(--green); }
+  .card.write { border-left-color: var(--orange); }
+  .card.warn  { border-left-color: var(--highlight); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 0.95em;
+  }
+  th {
+    background: var(--accent);
+    color: var(--cyan);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  tr:hover td { background: rgba(78,204,163,0.05); }
+
+  code, .cmd {
+    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    background: rgba(0,0,0,0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: var(--yellow);
+  }
+  pre {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 15px 18px;
+    overflow-x: auto;
+    margin: 12px 0;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.88em;
+    line-height: 1.5;
+    color: #c9d1d9;
+  }
+  pre .comment { color: #6a737d; }
+  pre .keyword { color: var(--cyan); }
+  pre .value   { color: var(--green); }
+  pre .addr    { color: var(--orange); }
+
+  .memory-map {
+    display: grid;
+    grid-template-columns: 120px 1fr 100px;
+    gap: 0;
+    margin: 15px 0;
+    font-family: 'Cascadia Code', monospace;
+    font-size: 0.85em;
+  }
+  .mem-row {
+    display: contents;
+  }
+  .mem-addr, .mem-label, .mem-size {
+    padding: 8px 12px;
+    border: 1px solid #2a2a4a;
+  }
+  .mem-addr { color: var(--orange); text-align: right; }
+  .mem-size { color: var(--text-dim); text-align: right; }
+  .mem-boot  { background: #2d1f1f; }
+  .mem-os    { background: #1f2d1f; }
+  .mem-cal   { background: #1f1f2d; border-left: 3px solid var(--green); }
+
+  .led-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .led-blue    { background: #0040ff; box-shadow: 0 0 6px #0040ff; }
+  .led-green   { background: #00ff00; box-shadow: 0 0 6px #00ff00; }
+  .led-cyan    { background: #00ccff; box-shadow: 0 0 6px #00ccff; }
+  .led-magenta { background: #cc00cc; box-shadow: 0 0 6px #cc00cc; }
+  .led-yellow  { background: #ccaa00; box-shadow: 0 0 6px #ccaa00; }
+  .led-red     { background: #ff0000; box-shadow: 0 0 6px #ff0000; }
+  .led-orange  { background: #ff8800; box-shadow: 0 0 6px #ff8800; }
+  .led-teal    { background: #00cc88; box-shadow: 0 0 6px #00cc88; }
+
+  .step-list {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+  }
+  .step-list li {
+    counter-increment: step;
+    padding: 8px 0 8px 45px;
+    position: relative;
+  }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--cyan);
+    text-align: center;
+    line-height: 30px;
+    font-weight: bold;
+    font-size: 0.85em;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+  @media (max-width: 768px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-fast { background: var(--green); color: #000; }
+  .badge-slow { background: var(--orange); color: #000; }
+  .badge-risk { background: var(--highlight); color: #fff; }
+
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    margin-top: 3em;
+    padding: 20px;
+    border-top: 1px solid var(--accent);
+    font-size: 0.85em;
+  }
+  .wiki-banner {
+    background: linear-gradient(90deg, #1f2d4a, #16213e);
+    border: 1px solid var(--cyan);
+    border-radius: 10px;
+    padding: 14px 22px;
+    margin: 0 0 22px;
+    text-align: center;
+  }
+  .wiki-banner a {
+    color: var(--cyan);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .wiki-banner a:hover { text-decoration: underline; }
+  .wiki-banner .small { color: var(--text-dim); font-size: 0.9em; display: block; margin-top: 4px; }
+  ul.tight { padding-left: 1.4em; margin: 8px 0; }
+  ul.tight li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+
+
+<h1>Flashy &mdash; J2534 Pass-Thru</h1>
+<p class="subtitle">Tool Instructions &mdash; v1.4.0 first public release</p>
+
+<!-- ============================================================ -->
+<div class="wiki-banner">
+  <a href="https://github.com/kidturbo/Flashy/wiki" target="_blank">Check the Flashy Wiki</a>
+  for the latest instructions, capture workflows, VIN-write recipes, and current MENU options.
+  <span class="small">
+    Algorithms and clean-room kernels are being added quickly &mdash; the wiki tracks the live state.
+    This page documents what shipped <strong>in this release (v1.4.0)</strong>.
+  </span>
+</div>
+
+<!-- ============================================================ -->
+<h2>What This Release Does</h2>
+<div class="card">
+  <p>Flashy is a J2534-style Pass-Thru tool for <strong>diagnostics, reversing, and programming
+     automotive ECUs</strong>. It bridges your PC to the vehicle CAN bus (OBD-II or bench harness)
+     using an <a href="https://www.adafruit.com/product/4759">Adafruit Feather M4 CAN Express</a>
+     paired with an <a href="https://www.adafruit.com/product/2922">AdaLogger FeatherWing</a>.</p>
+
+  <p style="margin-top:10px;"><strong>v1.4.0 is the first public release.</strong> The shipped
+     firmware includes only the clean-room MIT-licensed read kernel for the GM E92 ECM.
+     Other modules (E38, E67, T87, T87A, T93, T42) are recognized for diagnostics &mdash; VIN read,
+     VIN write, OSID read, CAN bus capture &mdash; but flash <em>read/write</em> requires kernels
+     this build does not include. See the wiki for how to add your own.</p>
+
+  <div class="two-col" style="margin-top:14px;">
+    <div class="card full">
+      <h3>Works out of the box</h3>
+      <ul class="tight">
+        <li>E92 ECM full flash read (clean-room kernel, ~7 min)</li>
+        <li>VIN scan across the bus &mdash; finds all responding modules</li>
+        <li>VIN read &amp; write on E38, E67, E92, T87, T87A, T93, T42</li>
+        <li>30-second CAN bus capture to a SavvyCAN-format CSV</li>
+        <li>Auto-detect Feather USB COM port</li>
+      </ul>
+    </div>
+    <div class="card cal">
+      <h3>Available with user-supplied kernels</h3>
+      <ul class="tight">
+        <li>Full / calibration read on E38, E67, T87, T87A</li>
+        <li>Full / calibration write on E38, T87, T87A</li>
+        <li>BAM mode read/write on T87A (boot-assist recovery)</li>
+      </ul>
+      <p style="margin-top:8px; color: var(--text-dim); font-size: 0.9em;">
+        See <a href="https://github.com/kidturbo/Flashy/blob/main/.github/CONTRIBUTING.md"
+        style="color: var(--cyan);">CONTRIBUTING.md</a> for the build-your-own kernel workflow.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>What's in the Release Zip</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>File</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>firmware.uf2</code></td>
+          <td>Feather M4 firmware. Drag onto the FEATHBOOT drive to flash.</td></tr>
+      <tr><td><code>Flashy_Menu.bat</code></td>
+          <td>Top-level interactive picker &mdash; the recommended starting point.</td></tr>
+      <tr><td><code>Flash_Firmware.bat</code></td>
+          <td>Auto-detects the FEATHBOOT drive and copies <code>firmware.uf2</code> to it.</td></tr>
+      <tr><td><code>Detect_Port.bat</code> / <code>.exe</code></td>
+          <td>Lists Adafruit Feather USB COM ports and auto-detects which one is yours.</td></tr>
+      <tr><td><code>VIN_Scan.bat</code> / <code>.exe</code></td>
+          <td>Scans the CAN bus, prints VIN + module responses for every node found.</td></tr>
+      <tr><td><code>VIN_Update.bat</code> / <code>.exe</code></td>
+          <td>Writes a new 17-character VIN to a chosen module. Prompts you to pick the module first
+              (E38 / E67 / E92 / T87 / T87A / T93 / T42) so the right CAN IDs and seed-key algo are used.</td></tr>
+      <tr><td><code>Capture_CAN_Bus.bat</code> / <code>capture_bus.exe</code></td>
+          <td>30-second CAN bus capture, saved to your Desktop as
+              <code>capture-YYYYMMDD-HHMMSS.csv</code>. Useful for studying any CAN-capable tool's
+              session, or capturing a kernel another tool uploads so you can disassemble it.</td></tr>
+      <tr><td><code>reads/</code> &amp; <code>writes/</code></td>
+          <td>Local-only working folders. Both contain a README explaining their use. Anything you
+              drop here stays on your PC &mdash; never tracked in git, never uploaded.</td></tr>
+      <tr><td><code>Read-Write-Instructions.html</code></td>
+          <td>This page. Offline copy of the latest release docs.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<h2>Connecting Flashy</h2>
+<div class="card">
+  <ol class="step-list">
+    <li><strong>Assemble the hardware.</strong> Stack the AdaLogger on top of the Feather M4 CAN.
+        Cut the onboard 120&Omega; CAN terminator <em>before</em> stacking &mdash; once the wing is
+        on, the jumper is unreachable. Full step-by-step on the
+        <a href="https://github.com/kidturbo/Flashy/wiki/Hardware-Assembly" style="color: var(--cyan);">
+        Hardware Assembly wiki page</a>.</li>
+    <li><strong>Flash the firmware.</strong> Plug the Feather into your PC. Double-click the RESET
+        button on the Feather &mdash; a USB drive named <code>FEATHBOOT</code> appears. Run
+        <code>Flash_Firmware.bat</code> (it auto-finds FEATHBOOT and copies
+        <code>firmware.uf2</code> over) or drag <code>firmware.uf2</code> onto the drive yourself.</li>
+    <li><strong>Connect to the vehicle.</strong> Wire the Feather's CAN screw terminals to OBD-II
+        pins 6 (CAN-H) and 14 (CAN-L), with GND on pin 4 or 5. Don't tie the OBD-II +12V (pin 16)
+        &mdash; Flashy is USB-powered.</li>
+    <li><strong>Open a serial terminal at 115200 baud</strong> on the Feather's COM port. The
+        firmware prints a banner and tries to auto-detect the bus baud (500 kbps primary, 250 kbps
+        fallback). Type <code>MENU</code> for the interactive picker, or <code>HELP</code> for the
+        full command list.</li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2>Using the Tools (Easy Path)</h2>
+<div class="card">
+  <p>Run <strong><code>Flashy_Menu.bat</code></strong> or click <strong>Start Menu &rarr; Flashy &rarr; Flashy</strong>
+     after installing. You'll see:</p>
+<pre>
+  ==========================================
+    <span class="keyword">Flashy J2534 Pass-Thru</span>
+  ==========================================
+
+    1) Detect Feather port
+    2) VIN scan (find all modules on bus)
+    3) VIN update (write VIN to a module)
+    4) Capture CAN bus (30 sec to CSV)
+    5) Flash firmware
+
+    H) Open Read/Write Instructions
+    Q) Quit
+</pre>
+  <p>Pick a number, the tool runs in its own console, then you return to the menu. The COM port is
+     auto-detected on every run &mdash; no need to remember it.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>Working Example: Read an E92 ECM</h2>
+<div class="card full">
+  <p>The E92 ECM (MPC5674F) is the only module with a working clean-room kernel in this release.
+     Use it as your end-to-end test:</p>
+
+  <ol class="step-list">
+    <li>Connect Flashy to a 2014+ GM vehicle with an E92 ECM (most C7 Corvette, Camaro 6th-gen, etc.).
+        Or a bench-powered E92 with proper 12 V + ignition + ground wiring.</li>
+    <li>Open a serial terminal to the Feather (115200 baud).</li>
+    <li>Type <code>MENU</code> &rarr; <strong>3) Connect to ECU</strong> &rarr; <strong>E92 ECM</strong>.
+        The firmware sets the right CAN IDs and seed-key algo for you.</li>
+    <li>From the E92 menu, pick <strong>1) Full Read</strong>. The full sequence runs automatically:
+      <ul class="tight" style="margin-top:6px;">
+        <li>Reads VIN + OSID</li>
+        <li>SecurityAccess (computes the right seed-key)</li>
+        <li>Uploads the clean-room read kernel into ECU RAM at <code>0x40001000</code></li>
+        <li>Streams 4 MB flash via UDS <code>$23 ReadMemoryByAddress</code> to the SD card</li>
+        <li>Resets the ECU cleanly with <code>$11 01</code></li>
+      </ul>
+    </li>
+    <li>The result lands on the SD card as <code>&lt;OSID&gt;-&lt;YYMMDD&gt;-&lt;HHMMSS&gt;.bin</code>.
+        Pull the card and copy it to your PC, or watch progress in the serial terminal.</li>
+  </ol>
+
+  <p style="margin-top: 12px;"><strong>Expected timing:</strong> ~7 minutes for the full 4 MB at
+     ~9 KB/s, zero errors on a stable bus.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>What About E38 / E67 / T87 / T87A / T93 / T42?</h2>
+<div class="card warn">
+  <p>These modules are <strong>recognized and partially supported</strong> in this release:</p>
+  <ul class="tight">
+    <li><span class="badge badge-fast">Works</span> &nbsp; VIN scan, VIN read, VIN write, OSID read,
+        CAN bus capture, raw UDS commands</li>
+    <li><span class="badge badge-risk">Blocked in this build</span> &nbsp; Flash read, flash write,
+        BAM mode &mdash; the menu will print
+        <code>"No kernel/algo embedded for &lt;module&gt; in this build"</code> and abort cleanly.</li>
+  </ul>
+  <p style="margin-top: 12px;">If you have a CAN capture of a flash session from a tool you own, you
+     can extract that kernel into a private header and rebuild firmware with it locally. The
+     <a href="https://github.com/kidturbo/Flashy/blob/main/.github/CONTRIBUTING.md"
+     style="color: var(--cyan);">CONTRIBUTING.md</a> walks through the workflow.</p>
+  <p style="margin-top: 8px;"><strong>The wiki tracks live progress on adding more
+     clean-room kernels and algorithms.</strong> Check
+     <a href="https://github.com/kidturbo/Flashy/wiki" style="color: var(--cyan);">the wiki</a>
+     and the <a href="https://kidturbo.github.io/Flashy/changelog.html"
+     style="color: var(--cyan);">changelog</a> for new module support as it lands.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>Capturing a CAN Session</h2>
+<div class="card">
+  <p>Run <strong>Capture CAN Bus</strong> from the menu (or
+     <code>Capture_CAN_Bus.bat</code> directly). The default is a 30-second capture written to your
+     Desktop as <code>capture-YYYYMMDD-HHMMSS.csv</code>.</p>
+  <p>The CSV is in <a href="https://savvycan.com/" style="color: var(--cyan);">SavvyCAN</a> format.
+     Open it directly in SavvyCAN to filter, decode, and analyze. Useful for:</p>
+  <ul class="tight">
+    <li>Recording any CAN-capable tool's session for protocol study</li>
+    <li>Capturing a kernel another tool uploads to an ECU &mdash; the bytes are right there
+        in the <code>$36 80</code> TransferData frames</li>
+    <li>Reverse engineering OEM diagnostic flows</li>
+    <li>General CAN bus exploration</li>
+  </ul>
+  <p style="margin-top: 10px;">Press Ctrl+C during a capture to stop early. Default longer captures
+     up to 600 seconds via <code>capture_bus.exe --duration 600000</code>.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>NeoPixel LED Status</h2>
+<div class="card">
+  <table>
+    <tbody>
+      <tr><td><span class="led-indicator led-blue"></span> Dim blue</td><td>Idle &mdash; waiting for commands</td></tr>
+      <tr><td><span class="led-indicator led-green"></span> Solid green</td><td>Connected &amp; authenticated to a module</td></tr>
+      <tr><td><span class="led-indicator led-cyan"></span> Cyan flashing</td><td>Reading flash</td></tr>
+      <tr><td><span class="led-indicator led-orange"></span> Orange flashing</td><td>Writing flash</td></tr>
+      <tr><td><span class="led-indicator led-red"></span> Red flashing</td><td>Erasing flash</td></tr>
+      <tr><td><span class="led-indicator led-magenta"></span> Magenta</td><td>Waiting for module reset (BAM mode entry)</td></tr>
+      <tr><td><span class="led-indicator led-yellow"></span> Yellow</td><td>SecurityAccess in progress</td></tr>
+      <tr><td><span class="led-indicator led-red"></span> Solid red</td><td>Error &mdash; check serial output</td></tr>
+      <tr><td><span class="led-indicator led-teal"></span> Bright green strobe</td><td>Success celebration</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<h2>Troubleshooting</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Symptom</th><th>What to try</th></tr></thead>
+    <tbody>
+      <tr><td>"No Feather found" from <code>detect_port.exe</code></td>
+          <td>Check the USB cable (data, not charge-only), check Device Manager for the COM port, close
+              any serial terminal that has it open.</td></tr>
+      <tr><td>Boot says "no bus (use INIT or AUTOINIT)"</td>
+          <td>The CAN bus isn't reachable. Confirm vehicle ignition is on (key in RUN), wiring is solid,
+              and that the onboard 120&Omega; jumper is cut for vehicle use.</td></tr>
+      <tr><td><code>Module: T87</code> shown when you didn't pick anything</td>
+          <td>Updated in this release &mdash; default is now <code>None</code>. If you still see T87
+              you may be running an older firmware. Re-run <code>Flash_Firmware.bat</code>.</td></tr>
+      <tr><td><code>"No kernel/algo embedded for &lt;module&gt;"</code></td>
+          <td>Expected for non-E92 modules in this public build. See the wiki / CONTRIBUTING for the
+              build-your-own kernel workflow.</td></tr>
+      <tr><td>VIN write fails with NRC 0x35 (invalidKey)</td>
+          <td>Wrong module picked &mdash; the seed-key algo doesn't match. Re-run
+              <code>VIN_Update.bat</code> and pick the correct module from the prompt.</td></tr>
+      <tr><td>Window closes before I can read the output</td>
+          <td>Use the <code>.bat</code> launchers (they pause). If you double-click an
+              <code>.exe</code> directly it now also pauses with "Press Enter to close this
+              window..." &mdash; updated in v1.4.0.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  Flashy &mdash; J2534 Pass-Thru &middot; Feather M4 CAN Express<br>
+  v1.4.0 &middot; <a href="https://github.com/kidturbo/Flashy" style="color: var(--cyan);">github.com/kidturbo/Flashy</a>
+  &middot; <a href="https://github.com/kidturbo/Flashy/wiki" style="color: var(--cyan);">Wiki</a>
+  &middot; <a href="https://kidturbo.github.io/Flashy/changelog.html" style="color: var(--cyan);">Changelog</a>
+</footer>
+
+</body>
+</html>

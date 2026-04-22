@@ -1,0 +1,42 @@
+.pio/
+dist/
+
+# User-local read/write working dirs — never commit user .bin dumps,
+# log files, or anything they drop in here. The dist zip ships a
+# minimal reads/ and writes/ scaffold with READMEs only; beyond that
+# these directories are local to each user and must stay out of git.
+reads/
+writes/
+reads/**
+writes/**
+
+__pycache__/
+*.pyc
+*.exe
+.vscode/
+
+# Internal / private docs
+CLAUDE.md
+T87-Calibration-Comparison.html
+T87-Calibration-Comparison.rtf
+
+# Captures and logs (not for public repo)
+*.csv
+*.log
+*.js
+
+# Kernel binaries — never commit proprietary third-party kernel bytes
+src/*_private.h
+kernels/
+
+# Cernels — track source + shippable kernel.bin, ignore build artifacts
+Cernels/**/*.o
+Cernels/**/*.elf
+Cernels/**/*.map
+Cernels/**/*.lst
+
+# Strays / local dev artifacts
+COM38
+uf2conv.py
+tools/efi_check_license_sequence.txt
+build_pyinstaller/

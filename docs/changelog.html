@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changelog &mdash; Flashy (J2534 Pass-Thru, Feather M4 CAN)</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --heading: #58a6ff;
+            --accent: #39d353;
+            --warn: #d29922;
+            --code-bg: #1c2129;
+            --link: #58a6ff;
+            --added: #39d353;
+            --changed: #d29922;
+            --fixed: #f778ba;
+            --removed: #f85149;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 {
+            color: var(--heading);
+            font-size: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            color: var(--accent);
+            font-size: 1.4rem;
+            margin: 2rem 0 0.75rem;
+            border-left: 4px solid var(--accent);
+            padding-left: 0.75rem;
+        }
+        h2 .date {
+            font-size: 0.85rem;
+            color: #484f58;
+            font-weight: 400;
+            margin-left: 0.75rem;
+        }
+        ul { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        li { margin-bottom: 0.35rem; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin: 1rem 0;
+        }
+        .tag {
+            display: inline-block;
+            padding: 0.1rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .tag-added    { background: rgba(57,211,83,0.15);  color: var(--added); }
+        .tag-changed  { background: rgba(210,153,34,0.15); color: var(--changed); }
+        .tag-fixed    { background: rgba(247,120,186,0.15); color: var(--fixed); }
+        .tag-removed  { background: rgba(248,81,73,0.15);  color: var(--removed); }
+        .tag-infra    { background: rgba(88,166,255,0.15); color: var(--heading); }
+        .note {
+            border-left: 4px solid var(--warn);
+            background: rgba(210,153,34,0.08);
+            padding: 0.75rem 1rem;
+            border-radius: 0 6px 6px 0;
+            margin: 0.75rem 0;
+            font-size: 0.9rem;
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            color: #484f58;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<h1>Changelog</h1>
+<p>All notable changes to <strong>Flashy</strong> &mdash; the J2534-style Pass-Thru interface for the Adafruit Feather M4 CAN Express &mdash; are documented here.</p>
+
+<div class="note">
+    Format follows <a href="https://keepachangelog.com/">Keep a Changelog</a>.
+    Tags: <span class="tag tag-added">Added</span>
+    <span class="tag tag-changed">Changed</span>
+    <span class="tag tag-fixed">Fixed</span>
+    <span class="tag tag-removed">Removed</span>
+    <span class="tag tag-infra">Infra</span>
+</div>
+
+<!-- ============================================================ -->
+<h2>v1.4.0 &mdash; First Release <span class="date">2026-04-22</span></h2>
+<div class="card">
+    <p><span class="tag tag-added">Added</span> First public release of <strong>Flashy</strong> &mdash; a clean-room, MIT-licensed J2534-style Pass-Thru tool. Built from public protocol documentation and reference manuals only. No commercial flash-tool source code, kernels, or proprietary IP referenced or included.</p>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Hardware</h3>
+    <ul>
+        <li>Target: <strong>Adafruit Feather M4 CAN Express</strong> (ATSAME51J19A, 120 MHz Cortex-M4F, built-in CAN peripheral + transceiver)</li>
+        <li>Optional <strong>Adalogger FeatherWing</strong> (SD card + PCF8523 RTC) for on-device .bin storage and timestamped filenames</li>
+        <li>Annotated wiring photos and bench-pinout reference for GM modules under <code>docs/</code></li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Firmware features</h3>
+    <ul>
+        <li><strong>Auto-detect CAN at boot</strong> &mdash; sweeps 500k / 250k / 1M / 125k baud, no <code>INIT</code> required for normal operation</li>
+        <li><strong>Interactive menu</strong> &mdash; six top-level options (Help / Connect / Diag / ECU / Hacker / RAW), per-ECU operation menus, capability-gated commands</li>
+        <li><strong>UDS / ISO-TP / CAN driver stack</strong> &mdash; standard OBD-II services, multi-frame ISO-TP segmentation, interrupt-driven CAN RX with 4 KB ring buffer</li>
+        <li><strong>OBD-II diagnostics</strong> &mdash; Read DTC (<code>$03</code> with human-readable decode like <code>P0300</code> / <code>U0100</code>), Clear DTC (<code>$04</code>), VIN read/write, OSID, ECU reset</li>
+        <li><strong>SETCLOCK + RTC</strong> &mdash; PCF8523 wall clock, timestamped filenames (<code>&lt;OSID&gt;-YYMMDD-HHMMSS.bin</code>), session-counter fallback</li>
+        <li><strong>SCAN</strong> &mdash; multi-module bus probe, returns module type + VIN where available</li>
+        <li><strong>Bus Sniffer</strong> &mdash; live CAN frame display on serial, accept-all filter</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Module support</h3>
+    <ul>
+        <li><strong>E38 ECM</strong> (MPC561) &mdash; full read, cal/full write, kernel upload, VIN read/write, diag</li>
+        <li><strong>E67 ECM</strong> (MPC565) &mdash; full read (verified, 21 KB/s), cal/full write, kernel upload, VIN read/write</li>
+        <li><strong>E92 ECM</strong> (MPC5674F, e200z7 Book E) &mdash; <strong>clean-room kernel verified</strong>: full 4 MB read in 7&nbsp;min&nbsp;20&nbsp;s at 9 KB/s, three consecutive checksum matches (0x233F8347)</li>
+        <li><strong>T87 / T87A TCM</strong> (SPC564A80) &mdash; HS-CAN read/write, BAM-mode read/write (4 MB in 450 s, verified against JTAG readback)</li>
+        <li><strong>T93 TCM</strong> (SPC564A80) &mdash; HS-CAN diagnostics, BAM read in progress</li>
+        <li><strong>T42 TCM</strong>, <strong>E40 ECM</strong> &mdash; diagnostic-only at present</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Clean-room kernels (Cernels)</h3>
+    <ul>
+        <li><code>Cernels/e92_read/</code> &mdash; 1816-byte Book E read kernel for MPC5674F. Handles <code>$01</code> PING, <code>$1A</code> readDataByIdentifier, <code>$23</code> ReadMemoryByAddress (multi-frame ISO-TP TX with full FC/BS/STmin support), <code>$11&nbsp;01</code> ECUReset (SIU SRCR). Inherits bootloader stack, silently discards unrecognized frames. Built with the free NXP <code>powerpc-eabivle-gcc</code> toolchain.</li>
+        <li><code>Cernels/t87a_read/</code> &mdash; VLE/Book E read kernel for SPC564A80, work-in-progress.</li>
+        <li>MIT licensed. Written from Freescale / ST reference manuals and FlexCAN register definitions only. Embedded copyright signature in each binary.</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Host tools (Python &amp; .exe)</h3>
+    <ul>
+        <li><code>capture_bus.py</code> &mdash; raw CAN bus capture to SavvyCAN-format CSV</li>
+        <li><code>vin_scan.py</code> / <code>vin_update.py</code> &mdash; multi-module bus scan + VIN updater</li>
+        <li><code>detect_port.py</code> &mdash; Feather COM port auto-detect (USB VID match)</li>
+        <li><code>seed_key_algo.py</code> &mdash; GM 2-byte seed/key (1280-algo lookup)</li>
+        <li><code>gm5byte/</code> &mdash; GM 5-byte seed/key (AES-128 + SHA-256)</li>
+        <li><code>bin2header.py</code> &mdash; <code>.bin</code> &rarr; C header for embedding kernels in firmware</li>
+        <li><code>build_exe.py</code> &mdash; PyInstaller build pipeline (portable <code>dist/Flashy-Tool/</code> bundle, no Python required on target machine)</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Documentation</h3>
+    <ul>
+        <li><a href="https://kidturbo.github.io/Flashy/ecu-reference.html"><code>docs/ecu-reference.html</code></a> &mdash; MCU specs, memory maps, and module verification status</li>
+        <li><a href="https://kidturbo.github.io/Flashy/Read-Write-Instructions.html"><code>docs/Read-Write-Instructions.html</code></a> &mdash; step-by-step usage guide</li>
+        <li><a href="https://kidturbo.github.io/Flashy/J2534-CANbus-Reference.html"><code>docs/J2534-CANbus-Reference.html</code></a> &mdash; protocol reference (UDS / ISO-TP / J2534)</li>
+        <li>Starter wiki under <code>wiki/</code>, <code>CONTRIBUTING.md</code>, GitHub issue templates</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Distribution</h3>
+    <ul>
+        <li><code>Flashy-Tool.zip</code> &mdash; portable bundle, double-click any <code>.bat</code> to launch</li>
+        <li><code>Flashy-Tool-Setup-1.3.0.exe</code> &mdash; Windows installer (Inno Setup)</li>
+        <li>Pre-compiled <code>firmware.uf2</code> bundled in both</li>
+    </ul>
+
+    <p style="margin-top: 0.75rem; font-size: 0.9rem; color: #8b949e;">
+        <strong>License:</strong> MIT. Fork it, ship it, sell it &mdash; just keep the notice.
+    </p>
+</div>
+
+<!-- Add new entries above this line -->
+
+<footer>
+    Flashy &mdash; Adafruit Feather M4 CAN Express (SAME51) &middot;
+    <a href="https://github.com/kidturbo/Flashy">github.com/kidturbo/Flashy</a>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECU Reference Guide — J2534 Pass-Thru</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface2: #0f3460;
+            --border: #30363d;
+            --accent: #f0a500;
+            --accent-dim: #a07000;
+            --text: #d0d0d0;
+            --text-bright: #e8e8e8;
+            --heading: #f0a500;
+            --mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+            --sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --green: #2ecc71;
+            --green-bg: #1a3a2a;
+            --green-border: #27ae60;
+            --yellow: #f39c12;
+            --yellow-bg: #3a3520;
+            --yellow-border: #d68910;
+            --red: #e74c3c;
+            --red-bg: #3a1a1a;
+            --red-border: #c0392b;
+            --link: #5dade2;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 0;
+        }
+
+        /* CAN-bus accent stripe at top */
+        .top-stripe {
+            height: 4px;
+            background: linear-gradient(90deg,
+                var(--accent) 0%, var(--accent) 20%,
+                transparent 20%, transparent 25%,
+                var(--accent) 25%, var(--accent) 45%,
+                transparent 45%, transparent 50%,
+                var(--accent) 50%, var(--accent) 70%,
+                transparent 70%, transparent 75%,
+                var(--accent) 75%, var(--accent) 100%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 2.5rem;
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--accent-dim);
+        }
+        header h1 {
+            font-size: 2rem;
+            color: var(--accent);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        header .subtitle {
+            font-size: 0.95rem;
+            color: #888;
+            margin-top: 0.25rem;
+        }
+        header .subtitle span {
+            color: var(--accent-dim);
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+            padding: 1rem 1.25rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .legend-dot.green  { background: var(--green); }
+        .legend-dot.yellow { background: var(--yellow); }
+        .legend-dot.red    { background: var(--red); }
+        .legend-label { color: var(--text-bright); font-weight: 600; }
+        .legend-desc  { color: #999; }
+
+        /* Summary Table */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 2.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        thead {
+            background: var(--surface2);
+        }
+        thead th {
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.7rem 0.75rem;
+            border-bottom: 2px solid var(--accent-dim);
+            white-space: nowrap;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        tbody tr {
+            border-bottom: 1px solid #252545;
+            transition: background 0.15s;
+        }
+        tbody tr:hover {
+            background: rgba(240, 165, 0, 0.04);
+        }
+        tbody td {
+            padding: 0.55rem 0.75rem;
+            vertical-align: middle;
+        }
+        td.mono {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-green  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .badge-yellow { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+        .badge-red    { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+
+        .check  { color: var(--green); }
+        .cross  { color: #666; }
+        .maybe  { color: var(--yellow); }
+
+        /* Detail Sections */
+        .section-group {
+            margin-bottom: 2rem;
+        }
+        .section-group-title {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .section-group-title .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .group-green  .section-group-title { color: var(--green); }
+        .group-green  .section-group-title .dot { background: var(--green); }
+        .group-yellow .section-group-title { color: var(--yellow); }
+        .group-yellow .section-group-title .dot { background: var(--yellow); }
+        .group-red    .section-group-title { color: var(--red); }
+        .group-red    .section-group-title .dot { background: var(--red); }
+
+        /* Collapsible details */
+        details {
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        details[open] {
+            border-color: var(--accent-dim);
+        }
+        details.verified       { border-left: 3px solid var(--green); }
+        details.partial        { border-left: 3px solid var(--yellow); }
+        details.insufficient   { border-left: 3px solid var(--red); }
+
+        summary {
+            padding: 0.75rem 1rem;
+            background: var(--surface);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-bright);
+            user-select: none;
+            list-style: none;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::before {
+            content: "\25B6";
+            font-size: 0.65rem;
+            color: var(--accent);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        details[open] > summary::before {
+            transform: rotate(90deg);
+        }
+        summary:hover {
+            background: rgba(240, 165, 0, 0.06);
+        }
+        summary .ecu-name {
+            color: var(--accent);
+            font-family: var(--mono);
+            font-size: 1rem;
+        }
+        summary .mcu-chip {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: #999;
+            margin-left: auto;
+            padding-right: 0.5rem;
+        }
+
+        .detail-body {
+            padding: 1rem 1.25rem 1.25rem;
+            background: rgba(22, 33, 62, 0.5);
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (max-width: 800px) {
+            .detail-grid { grid-template-columns: 1fr; }
+        }
+
+        .detail-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.85rem 1rem;
+        }
+        .detail-card h4 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .detail-card .field {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.3rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .field-label {
+            color: #888;
+            min-width: 90px;
+            flex-shrink: 0;
+            font-size: 0.8rem;
+        }
+        .field-value {
+            color: var(--text-bright);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            word-break: break-all;
+        }
+        .field-value.text {
+            font-family: var(--sans);
+            font-size: 0.85rem;
+        }
+
+        .detail-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* Memory map mini-table */
+        .mem-table {
+            width: 100%;
+            font-size: 0.8rem;
+            border-collapse: collapse;
+            margin-top: 0.4rem;
+        }
+        .mem-table th {
+            text-align: left;
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            padding: 0.25rem 0.5rem;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .mem-table td {
+            padding: 0.2rem 0.5rem;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            border-bottom: 1px solid #1a1a3a;
+        }
+        .mem-table td.label-col {
+            font-family: var(--sans);
+            color: #aaa;
+        }
+        .mem-table tr.protected td {
+            color: var(--red);
+        }
+
+        /* Verification box */
+        .verification {
+            margin-top: 0.75rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+        .verification.v-green  { background: var(--green-bg); border: 1px solid var(--green-border); }
+        .verification.v-yellow { background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+        .verification.v-red    { background: var(--red-bg); border: 1px solid var(--red-border); }
+        .verification strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .verification.v-green  strong { color: var(--green); }
+        .verification.v-yellow strong { color: var(--yellow); }
+        .verification.v-red    strong { color: var(--red); }
+        .verification ul {
+            margin: 0;
+            padding-left: 1.2rem;
+        }
+        .verification li {
+            margin-bottom: 0.15rem;
+        }
+
+        /* Datasheet link */
+        .ds-link {
+            color: var(--link);
+            text-decoration: none;
+            font-size: 0.82rem;
+        }
+        .ds-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Our status badge inline */
+        .our-status {
+            display: inline-block;
+            margin-top: 0.5rem;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: rgba(46, 204, 113, 0.12);
+            color: var(--green);
+            border: 1px solid var(--green-border);
+        }
+        .our-status.wip {
+            background: rgba(243, 156, 18, 0.12);
+            color: var(--yellow);
+            border-color: var(--yellow-border);
+        }
+        .our-status.none {
+            background: rgba(100, 100, 100, 0.12);
+            color: #888;
+            border-color: #555;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid var(--accent-dim);
+            text-align: center;
+            color: #555;
+            font-size: 0.8rem;
+        }
+        footer .project-name {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* CAN bus decoration */
+        .can-decoration {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            margin: 0.5rem 0;
+        }
+        .can-bit {
+            width: 8px;
+            height: 3px;
+            background: var(--accent-dim);
+            border-radius: 1px;
+        }
+        .can-bit:nth-child(odd) {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-stripe"></div>
+
+<div class="container">
+
+<!-- ============================================================ -->
+<!-- HEADER                                                       -->
+<!-- ============================================================ -->
+<header>
+    <h1>J2534 Pass-Thru &mdash; ECU Reference Guide</h1>
+    <div class="subtitle">Feather M4 CAN Express &bull; GM Powertrain Controllers &bull; <span>CAN / BAM / JTAG</span></div>
+</header>
+
+<!-- ============================================================ -->
+<!-- LEGEND                                                       -->
+<!-- ============================================================ -->
+<div class="legend">
+    <div class="legend-item">
+        <div class="legend-dot green"></div>
+        <span class="legend-label">Verified</span>
+        <span class="legend-desc">&mdash; JTAG IDCODE, cited in tool config, board photo, or multiple independent sources confirm MCU</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-dot yellow"></div>
+        <span class="legend-label">Partial</span>
+        <span class="legend-desc">&mdash; Strong evidence (BDM protocol, memory map) but not physically confirmed</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-dot red"></div>
+        <span class="legend-label">Insufficient</span>
+        <span class="legend-desc">&mdash; No MCU identification yet; flash size / algo only</span>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SUMMARY TABLE                                                -->
+<!-- ============================================================ -->
+<div class="table-wrapper">
+<table>
+    <thead>
+        <tr>
+            <th>ECU</th>
+            <th>MCU</th>
+            <th>Core</th>
+            <th>Flash</th>
+            <th>CAN Protocol</th>
+            <th>Algo</th>
+            <th>BAM</th>
+            <th>JTAG</th>
+            <th>Kernel</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- GREEN -->
+        <tr>
+            <td><strong>E92</strong></td>
+            <td class="mono">MPC5674F</td>
+            <td class="mono">e200z7</td>
+            <td class="mono">4 MB</td>
+            <td class="mono">GMLanMPC5XXX</td>
+            <td class="mono">5B:0x92</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E80</strong></td>
+            <td class="mono">MPC5676R</td>
+            <td class="mono">e200z7</td>
+            <td class="mono">6 MB</td>
+            <td class="mono">GMLanGen6</td>
+            <td class="mono">5B:0x28</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E82</strong></td>
+            <td class="mono">MPC5676R</td>
+            <td class="mono">e200z7</td>
+            <td class="mono">6 MB+</td>
+            <td class="mono">GMLanGen5</td>
+            <td class="mono">5B:0x81</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E84</strong></td>
+            <td class="mono">MPC5676R</td>
+            <td class="mono">e200z7</td>
+            <td class="mono">6 MB</td>
+            <td class="mono">GMLanGen5</td>
+            <td class="mono">5B:0x85</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E83</strong></td>
+            <td class="mono">MPC5565</td>
+            <td class="mono">e200z6</td>
+            <td class="mono">2 MB</td>
+            <td class="mono">GMLanMPC5XXX</td>
+            <td class="mono">5B:0xB2 / 2B:0xDE</td>
+            <td class="cross">&mdash;</td>
+            <td class="check">&#10003;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E78</strong></td>
+            <td class="mono">MPC5566</td>
+            <td class="mono">e200z6</td>
+            <td class="mono">3 MB</td>
+            <td class="mono">HS-CAN / BAM</td>
+            <td class="mono">&mdash;</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E39/E39A</strong></td>
+            <td class="mono">MPC5566</td>
+            <td class="mono">e200z6</td>
+            <td class="mono">3 MB</td>
+            <td class="mono">GMLanMPC5XXX</td>
+            <td class="mono">5B:0xB2 / 2B:0xDC</td>
+            <td class="check">&#10003;</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>T87A</strong></td>
+            <td class="mono">SPC564A80</td>
+            <td class="mono">e200z4</td>
+            <td class="mono">4 MB</td>
+            <td class="mono">GMLanMPC5XXX</td>
+            <td class="mono">5B:0x87 / 2B:0x87</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>T87</strong></td>
+            <td class="mono">SPC564A80</td>
+            <td class="mono">e200z4</td>
+            <td class="mono">4 MB</td>
+            <td class="mono">GMLanMPC5XX</td>
+            <td class="mono">2B:0x57</td>
+            <td class="check">&#10003;</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>T93</strong></td>
+            <td class="mono">Unknown</td>
+            <td class="mono">Unknown</td>
+            <td class="mono">4 MB+</td>
+            <td class="mono">HS-CAN + CAN FD?</td>
+            <td class="mono">2B:0x5D</td>
+            <td class="cross">?</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-yellow">Partial</span></td>
+        </tr>
+        <!-- E38 + E67 promoted to GREEN (web research confirmed MPC561 / MPC565) -->
+        <tr>
+            <td><strong>E38</strong></td>
+            <td class="mono">MPC561</td>
+            <td class="mono">MPC500</td>
+            <td class="mono">2 MB ext</td>
+            <td class="mono">GMLanMPC5XX</td>
+            <td class="mono">2B:0x92</td>
+            <td class="cross">&mdash;</td>
+            <td class="maybe">BDM</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E67</strong></td>
+            <td class="mono">MPC565</td>
+            <td class="mono">MPC500</td>
+            <td class="mono">2 MB ext</td>
+            <td class="mono">GMLanMPC5XX</td>
+            <td class="mono">2B:0x89</td>
+            <td class="cross">&mdash;</td>
+            <td class="maybe">BDM</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-green">Verified</span></td>
+        </tr>
+        <tr>
+            <td><strong>E69</strong></td>
+            <td class="mono">MPC55xx?</td>
+            <td class="mono">&mdash;</td>
+            <td class="mono">2 MB</td>
+            <td class="mono">&mdash;</td>
+            <td class="mono">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td class="maybe">BDM</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-yellow">Partial</span></td>
+        </tr>
+        <tr>
+            <td><strong>E90</strong></td>
+            <td class="mono">MPC5676R?</td>
+            <td class="mono">&mdash;</td>
+            <td class="mono">8 MB</td>
+            <td class="mono">GMLanGen6</td>
+            <td class="mono">5B:0x28</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-yellow">Partial</span></td>
+        </tr>
+        <tr>
+            <td><strong>T43</strong></td>
+            <td class="mono">MPC55xx?</td>
+            <td class="mono">&mdash;</td>
+            <td class="mono">2 MB</td>
+            <td class="mono">GMLanMPC5XX</td>
+            <td class="mono">2B:0x84</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-yellow">Partial</span></td>
+        </tr>
+        <!-- E40 promoted to YELLOW (web research identified MC68376, not physically confirmed) -->
+        <tr>
+            <td><strong>E40</strong></td>
+            <td class="mono">MC68376</td>
+            <td class="mono">CPU32 (68K)</td>
+            <td class="mono">1 MB ext</td>
+            <td class="mono">GMLanMPC5XX</td>
+            <td class="mono">2B:0x68</td>
+            <td class="cross">&mdash;</td>
+            <td class="maybe">BDM</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-yellow">Partial</span></td>
+        </tr>
+        <tr>
+            <td><strong>T42</strong></td>
+            <td class="mono">Unknown</td>
+            <td class="mono">&mdash;</td>
+            <td class="mono">1 MB</td>
+            <td class="mono">GMLanMPC5XX</td>
+            <td class="mono">2B:0x73</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td class="cross">&mdash;</td>
+            <td><span class="status-badge badge-red">Unknown</span></td>
+        </tr>
+    </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<!-- GREEN — VERIFIED ECUs                                        -->
+<!-- ============================================================ -->
+<div class="section-group group-green">
+    <div class="section-group-title"><div class="dot"></div> Verified ECUs</div>
+
+    <!-- ======== E92 ECM ======== -->
+    <details class="verified" open>
+        <summary>
+            <span class="ecu-name">E92 ECM</span>
+            <span class="mcu-chip">MPC5674F</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MPC5674F</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z7 (Book E)</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/reference-manual/MPC5674FRM.pdf" class="ds-link" target="_blank">MPC5674F Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">4 MB (0x00000000-0x003FFFFF)</span></div>
+                    <div class="field"><span class="field-label">FMC0</span><span class="field-value">0xC3F88000</span></div>
+                    <div class="field"><span class="field-label">FMC1</span><span class="field-value">0xC3F8C000</span></div>
+                    <div class="field"><span class="field-label">SRAM</span><span class="field-value">256 KB @ 0x40000000</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFC000 (16 KB)</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XXX</td><td>E92Kernel.dat</td><td>5-byte 0x92</td></tr>
+                        <tr><td class="label-col">BAM</td><td>MPC5XXXBam</td><td>MPC5674BAM.dat</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">JTAG</td><td>e200z7, IR=5</td><td>&mdash;</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card">
+                    <h4>Flash Passwords</h4>
+                    <div class="field"><span class="field-label">Password 0</span><span class="field-value">A1A11111</span></div>
+                    <div class="field"><span class="field-label">Password 1</span><span class="field-value">B2B22222</span></div>
+                    <div class="field"><span class="field-label">Password 2</span><span class="field-value">C3C33333</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Special Regions</h4>
+                    <div class="field"><span class="field-label">Skip 1</span><span class="field-value">0x1FF80 (0x80 bytes)</span></div>
+                    <div class="field"><span class="field-label">Skip 2</span><span class="field-value">0x2FF80 (0x80 bytes)</span></div>
+                    <div class="field"><span class="field-label">Key offset</span><span class="field-value">0x10154 (0x11 bytes)</span></div>
+                </div>
+            </div>
+            <div class="our-status">Kernel: e92_read v0.1 -- 4 MB in 440s (~9 KB/s), checksum 0x233F8347 (3x match), clean $11 01 reset exit</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Cited in USBJTAG config (TECUE92BAM.xml, TECUE92CAN.xml, TECUE92JTAG.xml) as MPC5674F</li>
+                    <li>JTAG confirmed via e200z7 debug interface</li>
+                    <li>Dual FMC register addresses match <a href="https://www.nxp.com/docs/en/reference-manual/MPC5674FRM.pdf" class="ds-link" target="_blank">MPC5674F datasheet</a></li>
+                    <li>Our clean-room Kernel successfully reads 4 MB flash</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E80 ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E80 ECM</span>
+            <span class="mcu-chip">MPC5676R</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MPC5676R</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z7 (Book E)</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/reference-manual/MPC5676RRM.pdf" class="ds-link" target="_blank">MPC5676R Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">6 MB (0x00000000-0x005FFFFF)</span></div>
+                    <div class="field"><span class="field-label">FMC</span><span class="field-value">Dual modules</span></div>
+                    <div class="field"><span class="field-label">SRAM</span><span class="field-value">@ 0x40000000</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFC000 (16 KB)</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanGen6</td><td>E80Kernel.dat</td><td>5-byte 0x28</td></tr>
+                        <tr><td class="label-col">BAM</td><td>MPC5XXXBam</td><td>MPC5676BAM.dat</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">JTAG</td><td>e200z7, IR=5</td><td>&mdash;</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card">
+                    <h4>Flash Passwords</h4>
+                    <div class="field"><span class="field-label">Password 0</span><span class="field-value">A1A11111</span></div>
+                    <div class="field"><span class="field-label">Password 1</span><span class="field-value">B2B22222</span></div>
+                    <div class="field"><span class="field-label">Password 2</span><span class="field-value">C3C33333</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Notes</h4>
+                    <div class="field"><span class="field-value text">Shares kernel with E90 (E80Kernel.dat). Gen6 platform ECM.</span></div>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Cited in USBJTAG config (TECUE80BAM.xml, TECUE80JTAG.xml) as MPC5676R</li>
+                    <li>6 MB flash and dual FMC match <a href="https://www.nxp.com/docs/en/reference-manual/MPC5676RRM.pdf" class="ds-link" target="_blank">MPC5676R datasheet</a></li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E82 ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E82 ECM</span>
+            <span class="mcu-chip">MPC5676R</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MPC5676R</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z7 (Book E)</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/reference-manual/MPC5676RRM.pdf" class="ds-link" target="_blank">MPC5676R Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">6 MB+</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Memory Regions</h4>
+                    <table class="mem-table">
+                        <tr><th>Region</th><th>Start</th><th>End</th><th>Size</th><th>Notes</th></tr>
+                        <tr><td class="label-col">EEPROM</td><td>0x00000000</td><td>0x0001FFFF</td><td>128 KB</td><td>&mdash;</td></tr>
+                        <tr class="protected"><td class="label-col">Boot</td><td>0x00020000</td><td>0x0003FFFF</td><td>128 KB</td><td>Protected</td></tr>
+                        <tr><td class="label-col">Flash</td><td>0x00040000</td><td>0x05C3FFFF</td><td>~5.75 MB</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanGen5</td><td>E82Kernel.dat</td><td>5-byte 0x81</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Noted in USBJTAG config (TECUE82CAN.xml) as MPC5676R</li>
+                    <li>Flash passwords match MPC5676R family pattern</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E84 ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E84 ECM</span>
+            <span class="mcu-chip">MPC5676R</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MPC5676R</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z7 (Book E)</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/reference-manual/MPC5676RRM.pdf" class="ds-link" target="_blank">MPC5676R Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">6 MB</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFC000 (16 KB)</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanGen5</td><td>E84Kernel.dat</td><td>5-byte 0x85</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Noted in USBJTAG config (TECUE84CAN.xml) as MPC5676R</li>
+                    <li>Flash passwords and shadow address match MPC5676R family</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E83 ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E83 ECM</span>
+            <span class="mcu-chip">MPC5565</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MPC5565</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z6</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/reference-manual/MPC5565RM.pdf" class="ds-link" target="_blank">MPC5565 Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">2 MB (0x00000000-0x001FFFFF)</span></div>
+                    <div class="field"><span class="field-label">FMC</span><span class="field-value">Single @ 0xC3F88000</span></div>
+                    <div class="field"><span class="field-label">SRAM</span><span class="field-value">@ 0x40000000</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFFC00 (1 KB)</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Memory Regions</h4>
+                    <table class="mem-table">
+                        <tr><th>Region</th><th>Start</th><th>End</th><th>Size</th></tr>
+                        <tr class="protected"><td class="label-col">Boot</td><td>0x00000000</td><td>0x0001FFFF</td><td>128 KB</td></tr>
+                        <tr><td class="label-col">Firmware</td><td>0x00020000</td><td>0x001FFFFF</td><td>1.875 MB</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XXX</td><td>E83kernel.dat</td><td>5-byte 0xB2 / 2-byte 0xDE</td></tr>
+                        <tr><td class="label-col">JTAG</td><td>e200z6, IR=5</td><td>&mdash;</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Cited in USBJTAG config (TECUE83CAN.xml, TECUE83JTAG.xml) as MPC5565</li>
+                    <li>Single FMC, 2 MB flash, 1 KB shadow all match <a href="https://www.nxp.com/docs/en/reference-manual/MPC5565RM.pdf" class="ds-link" target="_blank">MPC5565 datasheet</a></li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E78 ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E78 ECM</span>
+            <span class="mcu-chip">MPC5566</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MPC5566</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z6</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/reference-manual/MPC5566RM.pdf" class="ds-link" target="_blank">MPC5566 Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">3 MB (0x00000000-0x002FFFFF)</span></div>
+                    <div class="field"><span class="field-label">FMC</span><span class="field-value">Single</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFFC00 (1 KB)</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Special Regions</h4>
+                    <div class="field"><span class="field-label">Skip 1</span><span class="field-value">0x3F80 (0x80 bytes)</span></div>
+                    <div class="field"><span class="field-label">Skip 2</span><span class="field-value">0x1FF80 (0x80 bytes)</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">BAM</td><td>MPC5XXXBam</td><td>MPC5566BAM.dat</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">JTAG</td><td>e200z6, IR=5</td><td>&mdash;</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Cited in USBJTAG config (TECUE78BAM.xml, TECUE78JTAG.xml) as MPC5566</li>
+                    <li>3 MB flash, single FMC, 1 KB shadow match <a href="https://www.nxp.com/docs/en/reference-manual/MPC5566RM.pdf" class="ds-link" target="_blank">MPC5566 datasheet</a></li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E39/E39A ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E39 / E39A ECM</span>
+            <span class="mcu-chip">MPC5566</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MPC5566</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z6</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/reference-manual/MPC5566RM.pdf" class="ds-link" target="_blank">MPC5566 Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">3 MB</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFFC00 (1 KB)</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">BAM</td><td>MPC5XXXBam</td><td>MPC5566BAM.dat</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">HS-CAN (E39A)</td><td>GMLanMPC5XXX</td><td>E39Akernel.dat</td><td>5-byte 0xB2 / 2-byte 0xDC</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Cited in USBJTAG config (TECUE39BAM.xml, TECUE39ACAN.xml) as MPC5566</li>
+                    <li>Shares BAM kernel with E78 (MPC5566BAM.dat)</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== T87A TCM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">T87A TCM</span>
+            <span class="mcu-chip">SPC564A80 (MPC5644A equiv.)</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">SPC564A80 (ST Qorivva)</span></div>
+                    <div class="field"><span class="field-label">Equivalent</span><span class="field-value">MPC5644A (Freescale)</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z4 (VLE)</span></div>
+                    <div class="field"><span class="field-label">JTAG IDCODE</span><span class="field-value">0x2AE02041</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.st.com/resource/en/reference_manual/rm0029-spc564a74xx-spc564a80xx-32bit-mcu-family-built-on-the-embedded-power-architecture-stmicroelectronics.pdf" class="ds-link" target="_blank">SPC564Axx Reference Manual RM0029 (ST)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">4 MB</span></div>
+                    <div class="field"><span class="field-label">FMC0</span><span class="field-value">0xC3F88000</span></div>
+                    <div class="field"><span class="field-label">FMC1</span><span class="field-value">0xC3F8C000</span></div>
+                    <div class="field"><span class="field-label">SRAM</span><span class="field-value">192 KB @ 0x40000000</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFC000 (16 KB)</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Flash Memory Map</h4>
+                    <table class="mem-table">
+                        <tr><th>Region</th><th>Start</th><th>End</th><th>Size</th><th>Notes</th></tr>
+                        <tr class="protected"><td class="label-col">Boot</td><td>0x000000</td><td>0x01FFFF</td><td>128 KB</td><td>Protected</td></tr>
+                        <tr><td class="label-col">BootBlock</td><td>0x020000</td><td>0x03FFFF</td><td>128 KB</td><td>Key @ 0x28710</td></tr>
+                        <tr><td class="label-col">Flash1</td><td>0x040000</td><td>0x07FFFF</td><td>256 KB</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">Trans</td><td>0x080000</td><td>0x17FFFF</td><td>1 MB</td><td>Key @ 0x80010</td></tr>
+                        <tr><td class="label-col">OS</td><td>0x180000</td><td>0x2FFFFF</td><td>1.5 MB</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">Empty</td><td>0x300000</td><td>0x3FFFFF</td><td>1 MB</td><td>Unused</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XXX</td><td>T87kernel.dat</td><td>5-byte 0x87 / 2-byte 0x87</td></tr>
+                        <tr><td class="label-col">BAM</td><td>MPC5XXXBoot</td><td>&mdash;</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">JTAG</td><td>e200z4, IR=5</td><td>&mdash;</td><td>PW: A72483DBE61FC095</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status">BAMREAD: 4 MB, 447s, 9.2 KB/s | BAMWRITE: 23 sectors, 380s | HS-CAN read: 32 KB/s (U-Link kernel)</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>JTAG IDCODE: 0x2AE02041 (physically confirmed)</li>
+                    <li>onCE JTAG ID: 0x07C2601D</li>
+                    <li>MCU ID register: 5640 Version 2.0</li>
+                    <li>MCR C3F88000: 0x05408600 (Code Flash Module 0)</li>
+                    <li>MCR C3F8C000: 0x05010600 (Code Flash Module 1)</li>
+                    <li>BAMREAD / BAMWRITE verified against JTAG readback</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== T87 TCM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">T87 TCM</span>
+            <span class="mcu-chip">SPC564A80 (same as T87A)</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">SPC564A80 (ST Qorivva)</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">e200z4 (VLE)</span></div>
+                    <div class="field"><span class="field-label">Relationship</span><span class="field-value text">Same hardware as T87A, no signed cals, no secure boot</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.st.com/resource/en/reference_manual/rm0029-spc564a74xx-spc564a80xx-32bit-mcu-family-built-on-the-embedded-power-architecture-stmicroelectronics.pdf" class="ds-link" target="_blank">SPC564Axx Reference Manual RM0029 (ST)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">4 MB</span></div>
+                    <div class="field"><span class="field-label">FMC0</span><span class="field-value">0xC3F88000 (MCR 0x05408600)</span></div>
+                    <div class="field"><span class="field-label">FMC1</span><span class="field-value">0xC3F8C000 (MCR 0x05010600)</span></div>
+                    <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFC000 (16 KB)</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">BAM</td><td>MPC5XXXBoot</td><td>T87kernel.dat</td><td>2-byte 0x57 (algo 87)</td></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>T87kernel.dat</td><td>2-byte 0x57</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card">
+                    <h4>Transmissions</h4>
+                    <div class="field"><span class="field-value text">8L90E, 8L45, Allison LCT1000 6-speed</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Vehicles (2014&ndash;2016)</h4>
+                    <div class="field"><span class="field-value text">2015-2016 Silverado/Sierra, 2015 Corvette C7, 2016 Camaro SS, 2015-2017 Escalade, 2015-2016 Tahoe/Suburban/Yukon.</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>T87 vs T87A</h4>
+                    <div class="field"><span class="field-value text">Same SPC564A80 MCU. T87 has <strong>no encryption, no signed calibrations, no secure boot</strong> &mdash; kernels load into RAM and execute freely. T87A added signed/encrypted cals + 5-byte seed-key + secure bootloader that rejects RAM execution.</span></div>
+                </div>
+            </div>
+            <div class="our-status">CALWRITE: 512KB, 25.6s, 20.1 KB/s | FULLWRITE: 3.5MB, 177.7s, 20.2 KB/s</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>CPUData register values byte-for-byte identical to JTAG-confirmed T87A (MCR 0x05408600 / 0x05010600)</li>
+                    <li>Same kernel (T87kernel.dat), same BAM protocol (MPC5XXXBoot), same flash layout</li>
+                    <li>MagicMotorsport Flex tool confirms SPC564A for T87/T87A family</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E38 ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E38 ECM</span>
+            <span class="mcu-chip">Motorola MPC561</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Motorola MPC561</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">MPC500 (embedded PowerPC, 32-bit)</span></div>
+                    <div class="field"><span class="field-label">Speed</span><span class="field-value">40-66 MHz</span></div>
+                    <div class="field"><span class="field-label">External Flash</span><span class="field-value">AMD AM29BDD160GB (2 MB burst)</span></div>
+                    <div class="field"><span class="field-label">Slave CPU</span><span class="field-value">MC9S12C32 (Drive-By-Wire)</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/data-sheet/MPC561RM.pdf" class="ds-link" target="_blank">MPC561 Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Int Flash</span><span class="field-value">1 MB (unused by GM)</span></div>
+                    <div class="field"><span class="field-label">Ext Flash</span><span class="field-value">2 MB (AM29BDD160GB)</span></div>
+                    <div class="field"><span class="field-label">SRAM</span><span class="field-value">32 KB</span></div>
+                    <div class="field"><span class="field-label">Analog Ch</span><span class="field-value">32 (2&times; QADC64)</span></div>
+                    <div class="field"><span class="field-label">CAN</span><span class="field-value">3&times; TouCAN (NOT FlexCAN)</span></div>
+                    <div class="field"><span class="field-label">Debug</span><span class="field-value">BDM (not JTAG)</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Flash Memory Map (External)</h4>
+                    <table class="mem-table">
+                        <tr><th>Region</th><th>Start</th><th>End</th><th>Size</th><th>Notes</th></tr>
+                        <tr class="protected"><td class="label-col">Boot</td><td>0x000000</td><td>0x00FFFF</td><td>64 KB</td><td>Key @ 0xC1CC</td></tr>
+                        <tr><td class="label-col">SystemOS</td><td>0x010000</td><td>0x1FFFFF</td><td>~1.94 MB</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>E38kernel.dat</td><td>2-byte 0x92 (algo 402)</td></tr>
+                        <tr><td class="label-col">BDM</td><td>BDMPPC, MPC55X</td><td>&mdash;</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card">
+                    <h4>Vehicles</h4>
+                    <div class="field"><span class="field-value text">2006+ Corvette (LS2/LS3/LS7), Camaro SS (LS3/L99), CTS (3.6L), G8 GT (L76/LS3), Silverado/Sierra (Gen IV V8), Trailblazer, SSR, most Gen IV GM V8 vehicles.</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Key Difference vs E67</h4>
+                    <div class="field"><span class="field-value text">MPC561 = 32 KB SRAM, 32 analog channels. E67 (MPC565) = 80 KB SRAM, 40 analog channels. Both use external 2 MB burst flash.</span></div>
+                </div>
+            </div>
+            <div class="our-status">READ: 3/3 on SD card, working via U-Link kernel | VIN ...7561 checksum 0xBC224A2</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>BitBox / Chiptuningshop commercial tool declares: "E38 &mdash; MCU: Motorola MPC561, Flash: AM29BDD160GB"</li>
+                    <li>IO Terminal product page lists E38 with AM29BDD160GB flash</li>
+                    <li>EFILive forum Gen IV ECM types: "E38: 1 x MPC561 CPU, 1 x MC9S12 CPU, 2Mb Burst Flash"</li>
+                    <li>rusefi wiki confirms MPC561 for E38</li>
+                    <li>USBJTAG BDM SubProtocol "MPC55X" (USBJTAG label for MPC5xx BDM, not MPC5500 series)</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E67 ECM ======== -->
+    <details class="verified">
+        <summary>
+            <span class="ecu-name">E67 ECM</span>
+            <span class="mcu-chip">Motorola MPC565</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Motorola MPC565</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">MPC500 (embedded PowerPC, 32-bit)</span></div>
+                    <div class="field"><span class="field-label">Speed</span><span class="field-value">40-66 MHz</span></div>
+                    <div class="field"><span class="field-label">External Flash</span><span class="field-value">Spansion S29CD016 (2 MB burst)</span></div>
+                    <div class="field"><span class="field-label">Slave CPU</span><span class="field-value">MC9S12C32 (Drive-By-Wire / ETC)</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/data-sheet/MPC565RM.pdf" class="ds-link" target="_blank">MPC565 Reference Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Int Flash</span><span class="field-value">1 MB (unused by GM)</span></div>
+                    <div class="field"><span class="field-label">Ext Flash</span><span class="field-value">2 MB (S29CD016)</span></div>
+                    <div class="field"><span class="field-label">SRAM</span><span class="field-value">80 KB (@ 0x003F8000-0x0040BFFF)</span></div>
+                    <div class="field"><span class="field-label">Analog Ch</span><span class="field-value">40 (2&times; QADC)</span></div>
+                    <div class="field"><span class="field-label">CAN</span><span class="field-value">3&times; TouCAN (NOT FlexCAN)</span></div>
+                    <div class="field"><span class="field-label">Debug</span><span class="field-value">BDM (not JTAG)</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Kernel Load Address &mdash; MYSTERY SOLVED</h4>
+                    <div class="field"><span class="field-value text" style="color: var(--green);">
+                        EFILive's kernel at <code style="color:var(--accent);">0x003FC400</code> falls squarely within MPC565 internal SRAM (<code style="color:var(--accent);">0x003F8000&ndash;0x0040BFFF</code>).
+                        This was previously flagged as "not in MPC5565 SRAM" &mdash; correct, because the E67 is NOT MPC5565.
+                        The MPC5xx (MPC500 core) has SRAM at an entirely different address than MPC55xx (e200 core, SRAM @ 0x40000000).
+                    </span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Flash Memory Map (External)</h4>
+                    <table class="mem-table">
+                        <tr><th>Region</th><th>Start</th><th>End</th><th>Size</th><th>Notes</th></tr>
+                        <tr class="protected"><td class="label-col">Boot</td><td>0x000000</td><td>0x00FFFF</td><td>64 KB</td><td>Key @ 0xC0B8</td></tr>
+                        <tr><td class="label-col">SystemOS</td><td>0x010000</td><td>0x1FFFFF</td><td>~1.94 MB</td><td>&mdash;</td></tr>
+                    </table>
+                    <div style="margin-top:0.4rem; font-size:0.8rem; color:#999;">E67A variant: all addresses offset by +0x400000 (different external flash mapping)</div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>E67kernel.dat</td><td>2-byte 0x89 (algo 393)</td></tr>
+                        <tr><td class="label-col">BDM</td><td>BDMPPC, MPC55X</td><td>&mdash;</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">Slave</td><td>GMLanSlave</td><td>E67slave.dat</td><td>2-byte 0x89</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Vehicles</h4>
+                    <div class="field"><span class="field-value text">2006-2008 CTS-V (LS2), Hummer H3 (LH8 5.3L), Impala SS / Monte Carlo / GP GXP / LaCrosse Super (LS4 FWD), Trailblazer/Envoy/Rainier/Saab 9-7X (LS2 5.3/6.0L). 2009+ Corvette ZR1 (LS9), CTS-V (LSA), Camaro ZL1 (LSA), Colorado/Canyon (5.3L). All GM supercharged vehicles until Gen V LT4 transition (~2015-2017).</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4 style="color: var(--yellow);">Impact on Clean-Room Kernel</h4>
+                    <div class="field"><span class="field-value text" style="color: var(--yellow);">
+                        The E67 Kernel needs a <strong>completely different approach</strong> than the E92 Kernel.
+                        MPC565 uses MPC500 core (original Book E predecessor), TouCAN (not FlexCAN),
+                        and a different peripheral register map. The NXP powerpc-eabivle-gcc may work with appropriate -mcpu flags,
+                        but the CAN driver and startup code must be rewritten from the MPC565 Reference Manual.
+                    </span></div>
+                </div>
+            </div>
+            <div class="our-status">FULLREAD: 2 MB, 96s, 21.3 KB/s, zero errors, checksums match (0x8E29C2)</div>
+            <div class="verification v-green">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>BitBox / Chiptuningshop declares: "E67 &mdash; MCU: Motorola MPC565, Flash: S29CD016, 2.0 MB"</li>
+                    <li>IO Terminal lists E67 with S29CD016 flash memory</li>
+                    <li>EFILive forum Gen IV types: "E67: 1 x MPC565 CPU, 1 x MC9S12 CPU, 2Mb Burst Flash"</li>
+                    <li>rusefi wiki: "E67 uses an MPC565"</li>
+                    <li>Kernel load address 0x003FC400 confirmed within MPC565 SRAM (0x003F8000&ndash;0x0040BFFF) &mdash; matches perfectly</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- ============================================================ -->
+<!-- YELLOW — PARTIALLY KNOWN ECUs                                -->
+<!-- ============================================================ -->
+<div class="section-group group-yellow">
+    <div class="section-group-title"><div class="dot"></div> Partially Known ECUs</div>
+
+    <!-- ======== E69 ECM ======== -->
+    <details class="partial">
+        <summary>
+            <span class="ecu-name">E69 ECM</span>
+            <span class="mcu-chip">MPC55xx (assumed)</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Likely MPC55xx family</span></div>
+                    <div class="field"><span class="field-label">BDM SubProto</span><span class="field-value">MPC55X</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">2 MB</span></div>
+                    <div class="field"><span class="field-label">EEPROM</span><span class="field-value">1 KB @ 0x80000000</span></div>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-yellow">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>BDM SubProtocol "MPC55X" identifies family</li>
+                    <li>No MCU cited in USBJTAG config</li>
+                    <li>EEPROM at 0x80000000 is unusual and may help narrow MCU variant</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E90 ECM ======== -->
+    <details class="partial">
+        <summary>
+            <span class="ecu-name">E90 ECM</span>
+            <span class="mcu-chip">MPC5676R-class (assumed)</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Unknown (possibly MPC5676R-class)</span></div>
+                    <div class="field"><span class="field-label">Note</span><span class="field-value text">Shares kernel with E80 (E80Kernel.dat)</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">8 MB starting @ 0x00800000</span></div>
+                    <div class="field"><span class="field-label">Note</span><span class="field-value text">Unusual base offset 0x00800000!</span></div>
+                    <div class="field"><span class="field-label">FMC0</span><span class="field-value">0xC3F88000</span></div>
+                    <div class="field"><span class="field-label">FMC1</span><span class="field-value">0xC3F8C000</span></div>
+                    <div class="field"><span class="field-label">Flash PW</span><span class="field-value">A1A11111 / B2B22222 / C3C33333</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanGen6</td><td>E80Kernel.dat</td><td>5-byte 0x28</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-yellow">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>Shares kernel and algo with E80 (MPC5676R), suggesting same family</li>
+                    <li>Dual FMC register addresses match MPC567x pattern</li>
+                    <li>8 MB flash with 0x00800000 offset is unusual — may be banked or different silicon</li>
+                    <li>No MCU cited in USBJTAG config</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== T43 TCM ======== -->
+    <details class="partial">
+        <summary>
+            <span class="ecu-name">T43 TCM</span>
+            <span class="mcu-chip">MPC55xx (assumed)</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Unknown MPC55xx</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">2 MB</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>T43Kernel.dat</td><td>2-byte 0x84</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-yellow">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>GMLanMPC5XX protocol implies MPC55xx family</li>
+                    <li>2 MB flash consistent with MPC5565 but not confirmed</li>
+                    <li>No BDM SubProtocol, &lt;CPU&gt; tag, or JTAG data available</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+</div>
+
+    <!-- ======== T93 TCM ======== -->
+    <details class="partial">
+        <summary>
+            <span class="ecu-name">T93 TCM</span>
+            <span class="mcu-chip">Unknown MCU &mdash; NOT same board as T87A</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value" style="color:var(--yellow);">UNKNOWN &mdash; physically different PCB from T87A</span></div>
+                    <div class="field"><span class="field-label">OBDSTAR claim</span><span class="field-value text">SPC5888 (unverified &mdash; not in ST product catalog)</span></div>
+                    <div class="field"><span class="field-label">USBJTAG claim</span><span class="field-value text">TCUT93GMBoot.xml shares CPUData with T87A, but board inspection contradicts</span></div>
+                    <div class="field"><span class="field-label">CAN FD?</span><span class="field-value text" style="color:var(--yellow);">HPT unlock starts at 500 kbps then switches to higher speed &mdash; likely CAN FD</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Label (bench unit)</h4>
+                    <div class="field"><span class="field-label">GM PN</span><span class="field-value">24047110</span></div>
+                    <div class="field"><span class="field-label">Service #</span><span class="field-value">24046678</span></div>
+                    <div class="field"><span class="field-label">Mfg</span><span class="field-value">Bosch, Made in USA</span></div>
+                    <div class="field"><span class="field-label">Serial</span><span class="field-value">1320101000000X</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Known Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Notes</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>500 kbps initial</td><td>HPT starts here, then switches speed (CAN FD?)</td></tr>
+                        <tr><td class="label-col">BAM</td><td>UNKNOWN</td><td>USBJTAG config exists but board differs from T87A &mdash; BAM unverified</td></tr>
+                        <tr><td class="label-col">JTAG</td><td>&mdash;</td><td>No JTAG port visible on PCB, chips unlabeled</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card">
+                    <h4>Transmissions</h4>
+                    <div class="field"><span class="field-value text">8L45, 8L90, 10L80, 10L90, Allison 10L1000 (HD diesel)</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Vehicles (2019&ndash;2026+)</h4>
+                    <div class="field"><span class="field-value text">2019+ Silverado/Sierra 1500, 2020+ Tahoe/Suburban/Yukon/Escalade, 2020+ Camaro SS/ZL1, Corvette C8, CT5-V/CT4-V Blackwing, Escalade-V. Global A + Global B platforms.</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4 style="color: var(--red);">Physical Inspection &mdash; Board Differs from T87A</h4>
+                    <div class="field"><span class="field-value text" style="color: var(--yellow);">
+                        Visual inspection of bench unit shows the T93 PCB and processor look <strong>nothing like</strong> the T87A.
+                        Chips are unlabeled, no JTAG port found. The USBJTAG config shares CPUData register values with T87A,
+                        but this may reflect a config template reuse rather than actual silicon identity.
+                        OBDSTAR DC706 lists the T93 MCU as "SPC5888" which is not a known ST part number.
+                        <strong>Do not assume T87A BAM protocol works on T93 without verification.</strong>
+                    </span></div>
+                </div>
+            </div>
+            <div class="our-status wip">Bench unit available (PN 24047110) &mdash; HS-CAN testing next, BAM status unknown</div>
+            <div class="verification v-yellow">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>USBJTAG config (TCUT93GMBoot.xml) shares CPUData with T87A &mdash; but board physically differs</li>
+                    <li>PCB inspection: processor and board layout do NOT match T87A</li>
+                    <li>Chips unlabeled, no visible JTAG port</li>
+                    <li>HPT unlock tool uses HS-CAN then switches to high-speed mode (possibly CAN FD)</li>
+                    <li>Existing capture CSVs end when speed switch occurs &mdash; CAN FD data not captured</li>
+                    <li>Bench unit label photographed: GM 24047110, Bosch, SERV# 24046678</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <!-- ======== E40 ECM ======== -->
+    <details class="partial">
+        <summary>
+            <span class="ecu-name">E40 ECM</span>
+            <span class="mcu-chip">Motorola MC68376 (CPU32 / 68K family)</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Motorola MC68376</span></div>
+                    <div class="field"><span class="field-label">Core</span><span class="field-value">CPU32 (Motorola 68000 family, NOT PowerPC)</span></div>
+                    <div class="field"><span class="field-label">Architecture</span><span class="field-value">68K (completely different from MPC5xx PowerPC)</span></div>
+                    <div class="field"><span class="field-label">External Flash</span><span class="field-value">AMD AM29BL802CB (1 MB burst)</span></div>
+                    <div class="field"><span class="field-label">Note</span><span class="field-value text">Dual MC683xx CPUs per EFILive</span></div>
+                    <div class="field"><span class="field-label">Datasheet</span><span class="field-value text"><a href="https://www.nxp.com/docs/en/user-guide/MC68336376UM.pdf" class="ds-link" target="_blank">MC68336/376 User Manual (NXP)</a></span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Ext Flash</span><span class="field-value">1 MB (AM29BL802CB)</span></div>
+                    <div class="field"><span class="field-label">SRAM</span><span class="field-value">@ 0xFFFF0000 (internal, configurable)</span></div>
+                    <div class="field"><span class="field-label">SIM regs</span><span class="field-value">0xFFF6xx (matches MC68376 UM)</span></div>
+                    <div class="field"><span class="field-label">TPU regs</span><span class="field-value">0xFFFAxx (matches MC68376 UM)</span></div>
+                    <div class="field"><span class="field-label">Debug</span><span class="field-value">BDM (68K-style, distinct from PowerPC BDM)</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>E40Kernel.dat</td><td>2-byte 0x68 (algo 104)</td></tr>
+                        <tr><td class="label-col">BDM</td><td>68K BDM (NOT BDMPPC)</td><td>&mdash;</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">Slave</td><td>GMLan68K</td><td>&mdash;</td><td>&mdash;</td></tr>
+                    </table>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Vehicles (2005-2006 only, transitional Gen III/IV)</h4>
+                    <div class="field"><span class="field-value text">2005 Corvette C6 (LS2 6.0L), 2005-2006 Pontiac GTO (LS2), 2005-2006 SSR (LS2), 2006 Trailblazer SS (LS2), 2005-2006 Envoy/Trailblazer/Rainier/Saab 9-7X (LH6/LQ9 5.3/6.0L).</span></div>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-yellow">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>PCMHacking forum (t=6416): E40 identified as MC68376 with AM29BL802CB flash</li>
+                    <li>EFILive forum Gen IV types: "E40: 2 x MC683xx CPU's, 1Mb Burst Flash"</li>
+                    <li>USBJTAG register addresses (0xFFF6xx SIM, 0xFFFAxx TPU) match MC68376 User Manual exactly</li>
+                    <li>BDM protocol is "BDM" (68K-style), NOT "BDMPPC" &mdash; confirms non-PowerPC</li>
+                    <li>Not yet confirmed with board photo or JTAG IDCODE</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- ============================================================ -->
+<!-- RED — INSUFFICIENT DATA                                      -->
+<!-- ============================================================ -->
+<div class="section-group group-red">
+    <div class="section-group-title"><div class="dot"></div> Insufficient Data</div>
+
+    <!-- ======== T42 TCM ======== -->
+    <details class="insufficient">
+        <summary>
+            <span class="ecu-name">T42 TCM</span>
+            <span class="mcu-chip">Unknown (likely MC68376 or similar 68K)</span>
+        </summary>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <h4>MCU / Core</h4>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Unknown</span></div>
+                    <div class="field"><span class="field-label">Note</span><span class="field-value text">Same 1 MB flash and GMLanMPC5XX protocol as E40 (MC68376). Likely same MCU family (MC683xx / CPU32), but not confirmed.</span></div>
+                </div>
+                <div class="detail-card">
+                    <h4>Memory</h4>
+                    <div class="field"><span class="field-label">Flash</span><span class="field-value">1 MB</span></div>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Programming Interfaces</h4>
+                    <table class="mem-table">
+                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>T42Kernel.dat</td><td>2-byte 0x73 (algo 371)</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="verification v-red">
+                <strong>Verification Evidence</strong>
+                <ul>
+                    <li>No &lt;CPU&gt; tag, BDM SubProtocol, JTAG data, or board photo</li>
+                    <li>Only known data: 1 MB flash, GMLanMPC5XX protocol, 2-byte algo 0x73</li>
+                    <li>Shares flash size and protocol with E40 (MC68376) &mdash; likely same MCU family</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- ============================================================ -->
+<!-- CAN DECORATION                                               -->
+<!-- ============================================================ -->
+<div class="can-decoration">
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+    <div class="can-bit"></div><div class="can-bit"></div><div class="can-bit"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FOOTER                                                       -->
+<!-- ============================================================ -->
+<footer>
+    <p>Generated 2026-04-16 &bull; <span class="project-name">J2534 Pass-Thru Project</span> &bull; Feather M4 CAN Express</p>
+    <p style="margin-top:0.3rem; font-size:0.7rem; color:#444;">Verification levels per CLAUDE.md: green = JTAG IDCODE / cited in tool config / board photo / multiple sources; yellow = strong evidence, not physically confirmed; red = no MCU identification</p>
+</footer>
+
+</div><!-- .container -->
+</body>
+</html>

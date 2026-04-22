@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J2534 CANbus Protocol Reference — M4 Feather CAN</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --heading: #58a6ff;
+            --accent: #39d353;
+            --warn: #d29922;
+            --code-bg: #1c2129;
+            --link: #58a6ff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        h1 {
+            color: var(--heading);
+            font-size: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            color: var(--accent);
+            font-size: 1.4rem;
+            margin: 2rem 0 0.75rem;
+            border-left: 4px solid var(--accent);
+            padding-left: 0.75rem;
+        }
+        h3 {
+            color: var(--warn);
+            font-size: 1.1rem;
+            margin: 1.25rem 0 0.5rem;
+        }
+        p, li { margin-bottom: 0.4rem; }
+        ul, ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.75rem 0;
+            font-size: 0.9rem;
+        }
+        th, td {
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+        }
+        th {
+            background: var(--surface);
+            color: var(--heading);
+            font-weight: 600;
+        }
+        tr:nth-child(even) { background: rgba(22,27,34,0.5); }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin: 1rem 0;
+        }
+        .note {
+            border-left: 4px solid var(--warn);
+            background: rgba(210,153,34,0.08);
+            padding: 0.75rem 1rem;
+            border-radius: 0 6px 6px 0;
+            margin: 0.75rem 0;
+        }
+        .toc {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .toc ol { counter-reset: toc; list-style: none; padding-left: 0; }
+        .toc li { counter-increment: toc; margin: 0.3rem 0; }
+        .toc li::before { content: counter(toc) ". "; color: var(--accent); font-weight: 600; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+        .tag {
+            display: inline-block;
+            background: rgba(88,166,255,0.15);
+            color: var(--heading);
+            padding: 0.1rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-right: 0.3rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<h1>J2534 / CANbus Protocol Reference</h1>
+<p>Targeting: <strong>Adafruit Feather M4 CAN Express (SAME51)</strong> &mdash; for building a Pass-Thru style read/write .bin interface.</p>
+
+<div class="toc">
+    <strong>Contents</strong>
+    <ol>
+        <li><a href="#hw">Hardware — Feather M4 CAN Express</a></li>
+        <li><a href="#canbasics">CAN Bus Basics</a></li>
+        <li><a href="#arduino">Arduino CAN Setup &amp; Code</a></li>
+        <li><a href="#j2534">J2534 Pass-Thru Protocol</a></li>
+        <li><a href="#api">J2534 API Functions</a></li>
+        <li><a href="#msg">PASSTHRU_MSG Structure</a></li>
+        <li><a href="#errors">Error Codes</a></li>
+        <li><a href="#protocols">Supported Protocols &amp; Baud Rates</a></li>
+        <li><a href="#uds">UDS Services for Read/Write .bin</a></li>
+        <li><a href="#flow">Connection &amp; Flash Flow</a></li>
+        <li><a href="#mapping">Mapping J2534 API to M4 Feather</a></li>
+        <li><a href="#sources">Sources</a></li>
+    </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="hw">1. Hardware — Feather M4 CAN Express</h2>
+<div class="card">
+    <div class="two-col">
+        <div>
+            <h3>Specs</h3>
+            <ul>
+                <li><strong>MCU:</strong> ATSAME51J19A — 120 MHz Cortex-M4F</li>
+                <li><strong>Flash:</strong> 512 KB</li>
+                <li><strong>RAM:</strong> 192 KB</li>
+                <li><strong>CAN Controller:</strong> Built-in (SAME51 native CAN peripheral)</li>
+                <li><strong>Transceiver:</strong> On-board CAN transceiver + 5V boost</li>
+                <li><strong>Connector:</strong> 3-pin 3.5mm terminal block (CANH, CANL, GND)</li>
+                <li><strong>Adafruit Product:</strong> #4759</li>
+            </ul>
+        </div>
+        <div>
+            <h3>Pin Setup</h3>
+            <ul>
+                <li><code>PIN_CAN_STANDBY</code> → set <strong>LOW</strong> (wake transceiver)</li>
+                <li><code>PIN_CAN_BOOSTEN</code> → set <strong>HIGH</strong> (enable 5V boost)</li>
+                <li>Wire: <strong>H↔H</strong>, <strong>L↔L</strong> between nodes</li>
+                <li>GND connection optional but recommended</li>
+                <li>120Ω termination resistor at each end of bus</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="canbasics">2. CAN Bus Basics</h2>
+<div class="card">
+    <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Physical Layer</td><td>Differential pair (CANH / CANL), ISO 11898</td></tr>
+        <tr><td>Standard ID</td><td>11-bit (CAN 2.0A)</td></tr>
+        <tr><td>Extended ID</td><td>29-bit (CAN 2.0B)</td></tr>
+        <tr><td>Max Data Length</td><td>8 bytes per frame (classic CAN)</td></tr>
+        <tr><td>Common Baud Rates</td><td>125, 250, 500 kbps, 1 Mbps</td></tr>
+        <tr><td>Bus Arbitration</td><td>Non-destructive, priority by ID (lower wins)</td></tr>
+        <tr><td>Termination</td><td>120Ω at each end of bus</td></tr>
+    </table>
+    <h3>CAN Frame Structure</h3>
+<pre>
+┌─────────┬────────┬─────┬───────────────┬─────┬─────┬─────────┐
+│  SOF    │  ID    │ RTR │  DLC (0-8)    │DATA │ CRC │ ACK/EOF │
+│ 1 bit   │11/29b  │1 bit│  4 bits       │0-8B │15b  │         │
+└─────────┴────────┴─────┴───────────────┴─────┴─────┴─────────┘
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="arduino">3. Arduino CAN Setup &amp; Code</h2>
+
+<h3>Library</h3>
+<p>Install <strong>"Adafruit CAN"</strong> (CANSAME5x) via Arduino Library Manager. Board selection: <code>Feather M4 CAN (SAME51)</code>.</p>
+
+<h3>Sender Example</h3>
+<pre>
+#include &lt;CANSAME5x.h&gt;
+
+CANSAME5x CAN;
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial) delay(10);
+
+  pinMode(PIN_CAN_STANDBY, OUTPUT);
+  digitalWrite(PIN_CAN_STANDBY, false);  // transceiver out of standby
+  pinMode(PIN_CAN_BOOSTEN, OUTPUT);
+  digitalWrite(PIN_CAN_BOOSTEN, true);   // enable 5V boost
+
+  if (!CAN.begin(250000)) {              // 250 kbps — must match all nodes
+    Serial.println("CAN init failed!");
+    while (1) delay(10);
+  }
+  Serial.println("CAN TX ready");
+}
+
+void loop() {
+  // Send a standard 11-bit ID packet
+  CAN.beginPacket(0x12);        // CAN ID = 0x12
+  CAN.write('H');
+  CAN.write('i');
+  CAN.endPacket();
+
+  delay(100);
+}
+</pre>
+
+<h3>Receiver Example</h3>
+<pre>
+#include &lt;CANSAME5x.h&gt;
+
+CANSAME5x CAN;
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial) delay(10);
+
+  pinMode(PIN_CAN_STANDBY, OUTPUT);
+  digitalWrite(PIN_CAN_STANDBY, false);
+  pinMode(PIN_CAN_BOOSTEN, OUTPUT);
+  digitalWrite(PIN_CAN_BOOSTEN, true);
+
+  if (!CAN.begin(250000)) {
+    Serial.println("CAN init failed!");
+    while (1) delay(10);
+  }
+  Serial.println("CAN RX ready");
+}
+
+void loop() {
+  int packetSize = CAN.parsePacket();
+  if (packetSize) {
+    Serial.print("ID: 0x");
+    Serial.print(CAN.packetId(), HEX);
+    Serial.print("  DLC: ");
+    Serial.print(packetSize);
+    Serial.print("  Data: ");
+    while (CAN.available()) {
+      Serial.print((char)CAN.read());
+    }
+    Serial.println();
+  }
+}
+</pre>
+
+<div class="note">
+    <strong>Important:</strong> All nodes on the bus <em>must</em> use the same baud rate. 250 kbps is the recommended default for the Feather M4 CAN.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="j2534">4. J2534 Pass-Thru Protocol Overview</h2>
+<div class="card">
+    <p><strong>SAE J2534</strong> (Pass-Thru) is a standardized API that lets a PC application communicate with vehicle ECUs through a compliant hardware interface. Originally mandated for emissions-related ECU reprogramming, it now covers general diagnostics.</p>
+
+    <h3>Key Concepts</h3>
+    <ul>
+        <li><strong>Pass-Thru Device:</strong> Hardware bridge between PC (USB) and vehicle (OBD-II port)</li>
+        <li><strong>DLL API:</strong> Windows DLL exporting standardized C functions; OEM software calls these</li>
+        <li><strong>Protocol-Agnostic:</strong> One device, one API — works across CAN, ISO9141, KWP2000, J1850, etc.</li>
+        <li><strong>Channel:</strong> A logical connection to a specific protocol on the device</li>
+        <li><strong>Filter:</strong> Hardware-level message filtering (pass/block) to reduce traffic to the PC</li>
+    </ul>
+
+    <h3>Architecture</h3>
+<pre>
+┌──────────────┐     USB      ┌─────────────────┐    OBD-II    ┌───────┐
+│  PC / OEM    │ ◄──────────► │  J2534 Device    │ ◄──────────► │  ECU  │
+│  Application │   J2534 DLL  │  (Pass-Thru HW)  │   CAN bus   │       │
+└──────────────┘              └─────────────────┘              └───────┘
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="api">5. J2534 API Functions</h2>
+
+<table>
+    <tr><th>Function</th><th>Purpose</th></tr>
+    <tr><td><code>PassThruOpen</code></td><td>Open connection to J2534 device; returns DeviceID</td></tr>
+    <tr><td><code>PassThruClose</code></td><td>Close connection to device</td></tr>
+    <tr><td><code>PassThruConnect</code></td><td>Open a protocol channel (CAN, ISO15765, etc.); returns ChannelID</td></tr>
+    <tr><td><code>PassThruDisconnect</code></td><td>Close protocol channel</td></tr>
+    <tr><td><code>PassThruReadMsgs</code></td><td>Read messages from receive buffer</td></tr>
+    <tr><td><code>PassThruWriteMsgs</code></td><td>Send messages to vehicle network</td></tr>
+    <tr><td><code>PassThruStartMsgFilter</code></td><td>Set pass/block/flow-control filter</td></tr>
+    <tr><td><code>PassThruStopMsgFilter</code></td><td>Remove a message filter</td></tr>
+    <tr><td><code>PassThruStartPeriodicMsg</code></td><td>Queue a message for periodic transmission</td></tr>
+    <tr><td><code>PassThruStopPeriodicMsg</code></td><td>Stop a periodic message</td></tr>
+    <tr><td><code>PassThruIoctl</code></td><td>Get/set config params, clear buffers, init protocols</td></tr>
+    <tr><td><code>PassThruSetProgrammingVoltage</code></td><td>Set voltage on pin 15 (for flash programming)</td></tr>
+    <tr><td><code>PassThruReadVersion</code></td><td>Read firmware/DLL/API version strings</td></tr>
+    <tr><td><code>PassThruGetLastError</code></td><td>Get human-readable error description</td></tr>
+</table>
+
+<h3>Function Prototypes</h3>
+<pre>
+long PassThruOpen(void *pName, unsigned long *pDeviceID);
+long PassThruClose(unsigned long DeviceID);
+
+long PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID,
+                     unsigned long Flags, unsigned long BaudRate,
+                     unsigned long *pChannelID);
+long PassThruDisconnect(unsigned long ChannelID);
+
+long PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg,
+                      unsigned long *pNumMsgs, unsigned long Timeout);
+
+long PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg,
+                       unsigned long *pNumMsgs, unsigned long Timeout);
+
+long PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType,
+                            PASSTHRU_MSG *pMaskMsg, PASSTHRU_MSG *pPatternMsg,
+                            PASSTHRU_MSG *pFlowControlMsg, unsigned long *pFilterID);
+
+long PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID,
+                   void *pInput, void *pOutput);
+</pre>
+
+<!-- ============================================================ -->
+<h2 id="msg">6. PASSTHRU_MSG Structure</h2>
+<pre>
+typedef struct {
+    unsigned long ProtocolID;       // Protocol for this message
+    unsigned long RxStatus;         // Receive status flags
+    unsigned long TxFlags;          // Transmit option flags
+    unsigned long Timestamp;        // Timestamp in microseconds
+    unsigned long DataSize;         // Number of bytes in Data[]
+    unsigned long ExtraDataIndex;   // Start of extra data (e.g. CRC)
+    unsigned char Data[4128];       // Message payload
+} PASSTHRU_MSG;
+</pre>
+
+<h3>Protocol IDs</h3>
+<table>
+    <tr><th>ID</th><th>Protocol</th><th>Notes</th></tr>
+    <tr><td>0x01</td><td>J1850VPW</td><td>Variable Pulse Width</td></tr>
+    <tr><td>0x02</td><td>J1850PWM</td><td>Pulse Width Modulation</td></tr>
+    <tr><td>0x03</td><td>ISO9141</td><td>Slow init K-line</td></tr>
+    <tr><td>0x04</td><td>ISO14230 (KWP2000)</td><td>K-line fast/slow init</td></tr>
+    <tr><td>0x05</td><td><strong>CAN</strong></td><td>Raw CAN frames</td></tr>
+    <tr><td>0x06</td><td><strong>ISO15765</strong></td><td>CAN transport layer (needed for UDS/flash)</td></tr>
+</table>
+
+<h3>TX Flags</h3>
+<table>
+    <tr><th>Flag</th><th>Value</th><th>Meaning</th></tr>
+    <tr><td>CAN_29BIT_ID</td><td>0x00000100</td><td>Use 29-bit extended CAN ID</td></tr>
+    <tr><td>ISO15765_FRAME_PAD</td><td>0x00000040</td><td>Pad ISO15765 frames to 8 bytes</td></tr>
+    <tr><td>WAIT_P3_MIN_ONLY</td><td>0x00000200</td><td>Override P3 timing</td></tr>
+</table>
+
+<h3>RX Status Flags</h3>
+<table>
+    <tr><th>Flag</th><th>Value</th><th>Meaning</th></tr>
+    <tr><td>TX_MSG_TYPE</td><td>0x0001</td><td>Echo of transmitted message</td></tr>
+    <tr><td>START_OF_MESSAGE</td><td>0x0002</td><td>First-frame indication</td></tr>
+    <tr><td>RX_BREAK</td><td>0x0004</td><td>Break received</td></tr>
+    <tr><td>TX_INDICATION</td><td>0x0008</td><td>Tx complete indication</td></tr>
+    <tr><td>ISO15765_PADDING_ERROR</td><td>0x0010</td><td>Padding error detected</td></tr>
+    <tr><td>ISO15765_ADDR_TYPE</td><td>0x0080</td><td>Extended addressing</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="errors">7. Error Codes</h2>
+<table>
+    <tr><th>Code</th><th>Name</th><th>Meaning</th></tr>
+    <tr><td>0x00</td><td>STATUS_NOERROR</td><td>Success</td></tr>
+    <tr><td>0x01</td><td>ERR_NOT_SUPPORTED</td><td>Function not supported by device</td></tr>
+    <tr><td>0x02</td><td>ERR_INVALID_CHANNEL_ID</td><td>Bad channel identifier</td></tr>
+    <tr><td>0x03</td><td>ERR_INVALID_PROTOCOL_ID</td><td>Unrecognized protocol</td></tr>
+    <tr><td>0x04</td><td>ERR_NULL_PARAMETER</td><td>Null pointer passed</td></tr>
+    <tr><td>0x05</td><td>ERR_INVALID_IOCTL_VALUE</td><td>Invalid config parameter</td></tr>
+    <tr><td>0x06</td><td>ERR_INVALID_FLAGS</td><td>Invalid flags in message</td></tr>
+    <tr><td>0x07</td><td>ERR_FAILED</td><td>Unspecified error</td></tr>
+    <tr><td>0x08</td><td>ERR_DEVICE_NOT_CONNECTED</td><td>Device disconnected</td></tr>
+    <tr><td>0x09</td><td>ERR_TIMEOUT</td><td>Timeout expired</td></tr>
+    <tr><td>0x0A</td><td>ERR_INVALID_MSG</td><td>Message violates constraints</td></tr>
+    <tr><td>0x0B</td><td>ERR_INVALID_TIME_INTERVAL</td><td>Time value out of range</td></tr>
+    <tr><td>0x0C</td><td>ERR_EXCEEDED_LIMIT</td><td>Filter/periodic limit exceeded</td></tr>
+    <tr><td>0x0D</td><td>ERR_INVALID_MSG_ID</td><td>Unknown message handle</td></tr>
+    <tr><td>0x0E</td><td>ERR_DEVICE_IN_USE</td><td>Device already opened</td></tr>
+    <tr><td>0x0F</td><td>ERR_INVALID_IOCTL_ID</td><td>Unknown ioctl command</td></tr>
+    <tr><td>0x10</td><td>ERR_BUFFER_EMPTY</td><td>No messages to read</td></tr>
+    <tr><td>0x11</td><td>ERR_BUFFER_FULL</td><td>Transmit queue full</td></tr>
+    <tr><td>0x12</td><td>ERR_BUFFER_OVERFLOW</td><td>Receive buffer overflow</td></tr>
+    <tr><td>0x13</td><td>ERR_PIN_INVALID</td><td>Unknown or in-use pin</td></tr>
+    <tr><td>0x14</td><td>ERR_CHANNEL_IN_USE</td><td>Protocol channel occupied</td></tr>
+    <tr><td>0x15</td><td>ERR_MSG_PROTOCOL_ID</td><td>Message protocol mismatch</td></tr>
+    <tr><td>0x16</td><td>ERR_INVALID_FILTER_ID</td><td>Unknown filter handle</td></tr>
+    <tr><td>0x17</td><td>ERR_NO_FLOW_CONTROL</td><td>Missing flow control filter</td></tr>
+    <tr><td>0x18</td><td>ERR_NOT_UNIQUE</td><td>Duplicate filter pattern</td></tr>
+    <tr><td>0x19</td><td>ERR_INVALID_BAUDRATE</td><td>Requested baud rate not achievable</td></tr>
+    <tr><td>0x1A</td><td>ERR_INVALID_DEVICE_ID</td><td>Unknown device handle</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="protocols">8. Supported Protocols &amp; Baud Rates</h2>
+<div class="card">
+    <h3>J2534-1 (Mandatory)</h3>
+    <table>
+        <tr><th>Protocol</th><th>Baud Rates</th></tr>
+        <tr><td>CAN (ISO 11898)</td><td>125, 250, 500 kbps; 11-bit &amp; 29-bit IDs</td></tr>
+        <tr><td>ISO 15765 (CAN transport)</td><td>Same as CAN — adds segmentation &amp; flow control</td></tr>
+        <tr><td>ISO 9141-2</td><td>10400 baud (±0.5%), plus 4800–19200 range</td></tr>
+        <tr><td>ISO 14230-4 (KWP2000)</td><td>Same range as ISO 9141</td></tr>
+        <tr><td>J1850 VPW</td><td>10.4 kbps (high-speed 41.6 kbps)</td></tr>
+        <tr><td>J1850 PWM</td><td>41.6 kbps (high-speed 83.3 kbps)</td></tr>
+        <tr><td>SAE J2610</td><td>DaimlerChrysler SCI</td></tr>
+    </table>
+
+    <h3>J2534-2 (Optional Extensions)</h3>
+    <ul>
+        <li>SAE J1939 (heavy-duty CAN)</li>
+        <li>SAE J1708 (serial)</li>
+        <li>Single Wire CAN (GMLAN)</li>
+        <li>Ford Medium-Speed CAN (MS-CAN)</li>
+        <li>GM UART</li>
+        <li>Honda Diag-H</li>
+        <li>TP 2.0 (VW/Audi)</li>
+        <li>Fault Tolerant CAN</li>
+    </ul>
+</div>
+
+<div class="note">
+    <strong>For M4 Feather CAN:</strong> The SAME51 supports classic CAN at 62.5, 125, 250, 500 kbps and 1 Mbps.
+    OBD-II / automotive standard is typically <strong>500 kbps</strong> for CAN, though some vehicles use 250 kbps.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="uds">9. UDS Services for Read/Write .bin Files</h2>
+<div class="card">
+    <p><strong>UDS (Unified Diagnostic Services — ISO 14229)</strong> runs on top of ISO 15765 (CAN transport layer). These are the services you need for reading/writing binary firmware to/from ECUs.</p>
+
+    <h3>Session &amp; Security (Required Before Flashing)</h3>
+    <table>
+        <tr><th>SID</th><th>Service</th><th>Purpose</th></tr>
+        <tr><td>0x10</td><td><strong>DiagnosticSessionControl</strong></td><td>Switch to Programming Session (sub-function 0x02)</td></tr>
+        <tr><td>0x27</td><td><strong>SecurityAccess</strong></td><td>Seed/Key authentication to unlock ECU</td></tr>
+        <tr><td>0x3E</td><td><strong>TesterPresent</strong></td><td>Keep session alive (send periodically)</td></tr>
+        <tr><td>0x11</td><td><strong>ECUReset</strong></td><td>Reset ECU after flashing</td></tr>
+    </table>
+
+    <h3>Upload / Download Services (The Core for .bin R/W)</h3>
+    <table>
+        <tr><th>SID</th><th>Service</th><th>Direction</th><th>Purpose</th></tr>
+        <tr><td>0x34</td><td><strong>RequestDownload</strong></td><td>PC → ECU</td><td>Initiate writing .bin data TO the ECU. Specifies memory address &amp; size.</td></tr>
+        <tr><td>0x35</td><td><strong>RequestUpload</strong></td><td>ECU → PC</td><td>Initiate reading .bin data FROM the ECU. Specifies memory address &amp; size.</td></tr>
+        <tr><td>0x36</td><td><strong>TransferData</strong></td><td>Both</td><td>Transfer data blocks (chunked). Block counter increments each call.</td></tr>
+        <tr><td>0x37</td><td><strong>RequestTransferExit</strong></td><td>—</td><td>Signal transfer complete. ECU verifies integrity.</td></tr>
+    </table>
+
+    <h3>Memory Erase (Often Needed Before Write)</h3>
+    <table>
+        <tr><th>SID</th><th>Service</th><th>Purpose</th></tr>
+        <tr><td>0x31</td><td><strong>RoutineControl</strong></td><td>Start/stop routines — commonly used to erase flash memory before writing</td></tr>
+    </table>
+
+    <h3>UDS Negative Response Codes (Flash-Related)</h3>
+    <table>
+        <tr><th>NRC</th><th>Name</th><th>Meaning</th></tr>
+        <tr><td>0x13</td><td>incorrectMessageLengthOrInvalidFormat</td><td>Bad request format</td></tr>
+        <tr><td>0x31</td><td>requestOutOfRange</td><td>Address/size outside valid range</td></tr>
+        <tr><td>0x33</td><td>securityAccessDenied</td><td>Not authenticated</td></tr>
+        <tr><td>0x72</td><td>generalProgrammingFailure</td><td>Flash erase/program failed</td></tr>
+        <tr><td>0x73</td><td>wrongBlockSequenceCounter</td><td>TransferData block number mismatch</td></tr>
+        <tr><td>0x78</td><td>requestCorrectlyReceivedResponsePending</td><td>ECU busy, wait for response</td></tr>
+    </table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="flow">10. Connection &amp; Flash Flow</h2>
+
+<h3>J2534 Initialization Sequence</h3>
+<pre>
+1. PassThruOpen()                          → get DeviceID
+2. PassThruConnect(DeviceID,
+       ISO15765,                           // ProtocolID = 0x06
+       0,                                  // Flags (0 = 11-bit CAN ID)
+       500000,                             // Baud rate
+       &channelID)                         → get ChannelID
+3. PassThruStartMsgFilter(channelID,
+       FLOW_CONTROL_FILTER,                // FilterType
+       &maskMsg,                           // Mask: which bits to check
+       &patternMsg,                        // Pattern: ECU response ID (e.g. 0x7E8)
+       &flowControlMsg,                    // Flow control: tester ID (e.g. 0x7E0)
+       &filterID)
+4. PassThruIoctl(SET_CONFIG, ...)          → set timing params (P1–P4, etc.)
+</pre>
+
+<h3>Write .bin to ECU (Download)</h3>
+<pre>
+1. UDS 0x10 0x02          → Enter Programming Session
+2. UDS 0x27 0x01          → SecurityAccess: request seed
+3. UDS 0x27 0x02 [key]    → SecurityAccess: send key
+4. UDS 0x31 [erase]       → RoutineControl: erase flash region
+5. UDS 0x34 [addr][size]  → RequestDownload: specify address &amp; total size
+                             Response contains max block length
+6. Loop:
+   UDS 0x36 [blockN][data]→ TransferData: send .bin in chunks
+7. UDS 0x37               → RequestTransferExit
+8. UDS 0x11 0x01          → ECUReset (hard reset)
+</pre>
+
+<h3>Read .bin from ECU (Upload)</h3>
+<pre>
+1. UDS 0x10 0x02          → Enter Programming Session
+2. UDS 0x27 0x01/0x02     → SecurityAccess (seed/key)
+3. UDS 0x35 [addr][size]  → RequestUpload: specify address &amp; size
+                             Response contains max block length
+4. Loop:
+   UDS 0x36 [blockN]      → TransferData: receive .bin chunks
+   Save chunks to file
+5. UDS 0x37               → RequestTransferExit
+6. UDS 0x11 0x01          → ECUReset
+</pre>
+
+<!-- ============================================================ -->
+<h2 id="mapping">11. Mapping J2534 API → M4 Feather CAN</h2>
+<div class="card">
+    <p>The Feather M4 CAN isn't a J2534 device, but you can implement the <em>equivalent functionality</em> on it. Here's the mapping:</p>
+
+    <table>
+        <tr><th>J2534 Concept</th><th>M4 Feather Equivalent</th></tr>
+        <tr><td><code>PassThruOpen</code></td><td><code>CAN.begin(baudRate)</code> + pin setup</td></tr>
+        <tr><td><code>PassThruConnect</code> (ISO15765)</td><td>Use CAN.begin() + implement ISO-TP framing in software</td></tr>
+        <tr><td><code>PassThruReadMsgs</code></td><td><code>CAN.parsePacket()</code> + <code>CAN.read()</code></td></tr>
+        <tr><td><code>PassThruWriteMsgs</code></td><td><code>CAN.beginPacket(id)</code> / <code>CAN.write()</code> / <code>CAN.endPacket()</code></td></tr>
+        <tr><td><code>PassThruStartMsgFilter</code></td><td>Software filter on <code>CAN.packetId()</code>, or use SAME51 hardware filters</td></tr>
+        <tr><td><code>PassThruIoctl</code></td><td>Timing managed in firmware (millis/micros)</td></tr>
+        <tr><td>ISO 15765 transport layer</td><td><strong>Must implement manually:</strong> Single Frame / First Frame / Consecutive Frame / Flow Control</td></tr>
+        <tr><td>UDS service layer</td><td><strong>Must implement manually:</strong> Build/parse UDS request/response bytes</td></tr>
+        <tr><td>PC ↔ Feather link</td><td>USB Serial — send commands / receive data from a PC-side script</td></tr>
+    </table>
+
+    <div class="note">
+        <strong>Key requirement for .bin read/write:</strong> You need to implement <strong>ISO 15765-2 (ISO-TP)</strong> on top of raw CAN.
+        This handles segmentation of messages larger than 8 bytes — essential since UDS flash transfers
+        send/receive blocks of up to ~4 KB at a time. The CANSAME5x library gives you raw CAN frames only.
+    </div>
+
+    <h3>ISO-TP Frame Types (ISO 15765-2)</h3>
+    <table>
+        <tr><th>Type</th><th>Nibble</th><th>Purpose</th></tr>
+        <tr><td>Single Frame (SF)</td><td>0x0</td><td>Message fits in one CAN frame (≤7 bytes)</td></tr>
+        <tr><td>First Frame (FF)</td><td>0x1</td><td>First segment of multi-frame message; contains total length</td></tr>
+        <tr><td>Consecutive Frame (CF)</td><td>0x2</td><td>Subsequent segments; sequence number 0–F</td></tr>
+        <tr><td>Flow Control (FC)</td><td>0x3</td><td>Receiver tells sender: continue / wait / abort</td></tr>
+    </table>
+
+    <h3>Minimal Implementation Checklist</h3>
+    <ol>
+        <li>CAN driver init (CANSAME5x at 500 kbps for OBD-II)</li>
+        <li>ISO-TP layer: assemble/disassemble multi-frame messages</li>
+        <li>UDS request builder: construct SID + sub-function + data bytes</li>
+        <li>UDS response parser: handle positive responses, NRCs, and 0x78 pending</li>
+        <li>Serial command interface: PC sends commands like <code>READ addr size</code> / <code>WRITE addr file.bin</code></li>
+        <li>File transfer over serial: chunked binary transfer between PC and Feather</li>
+    </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="sources">12. Sources</h2>
+<ul>
+    <li><a href="https://learn.adafruit.com/adafruit-feather-m4-can-express/arduino-can-examples">Adafruit — Feather M4 CAN Arduino Examples</a></li>
+    <li><a href="https://learn.adafruit.com/adafruit-feather-m4-can-express/overview">Adafruit — Feather M4 CAN Overview</a></li>
+    <li><a href="https://www.adafruit.com/product/4759">Adafruit — Feather M4 CAN Express Product Page</a></li>
+    <li><a href="https://kvaser.com/about-can/can-standards/j2534/">Kvaser — Introduction to SAE J2534</a></li>
+    <li><a href="https://www.cnblogs.com/shangdawei/p/3627565.html">SAE J2534 Pass-Thru API Technical Reference</a></li>
+    <li><a href="https://github.com/diamondman/J2534-PassThru-Logger/blob/master/PassThruLogger/J2534_v0404.h">J2534 v04.04 Header File (GitHub)</a></li>
+    <li><a href="https://www.autopi.io/blog/j2534-explained/">AutoPi — J2534 Pass-Thru Explained</a></li>
+    <li><a href="https://github.com/jakka351/OpenJ2534">OpenJ2534 Resources (GitHub)</a></li>
+    <li><a href="https://www.csselectronics.com/pages/uds-protocol-tutorial-unified-diagnostic-services">CSS Electronics — UDS Protocol Tutorial</a></li>
+    <li><a href="https://en.wikipedia.org/wiki/Unified_Diagnostic_Services">Wikipedia — Unified Diagnostic Services</a></li>
+    <li><a href="https://www.peak-system.com/PCAN-PassThru-API.405.0.html?L=1">PEAK — PCAN-PassThru API</a></li>
+    <li><a href="https://automotive.softing.com/standards/programming-interfaces/passthru-sae-j2534.html">Softing — PassThru API (SAE J2534)</a></li>
+</ul>
+
+<hr style="margin-top: 2rem; border-color: var(--border);">
+<p style="color: #484f58; font-size: 0.8rem; margin-top: 1rem;">
+    Reference compiled March 2026. SAE J2534 v04.04 specification. For official details, obtain the full SAE standard document.
+</p>
+
+</div>
+</body>
+</html>

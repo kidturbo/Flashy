@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T87A 5-Patch Dual Unlock Recipe</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #1a1a2e; color: #e0e0e0; }
+  h1 { color: #00ff88; border-bottom: 2px solid #00ff88; padding-bottom: 10px; }
+  h2 { color: #00ccff; margin-top: 30px; }
+  h3 { color: #ffaa00; }
+  table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+  th { background: #16213e; color: #00ff88; padding: 10px 12px; text-align: left; border: 1px solid #333; }
+  td { padding: 8px 12px; border: 1px solid #333; font-family: 'Consolas', monospace; }
+  tr:nth-child(even) { background: #16213e; }
+  tr:nth-child(odd) { background: #1a1a2e; }
+  .patch-usbjtag { background: #0a2a1a !important; }
+  .patch-hpt { background: #2a1a0a !important; }
+  code { background: #16213e; padding: 2px 6px; border-radius: 3px; color: #00ff88; font-family: 'Consolas', monospace; }
+  .warning { background: #3a1a0a; border-left: 4px solid #ff4444; padding: 12px 16px; margin: 15px 0; }
+  .success { background: #0a2a1a; border-left: 4px solid #00ff88; padding: 12px 16px; margin: 15px 0; }
+  .info { background: #0a1a2a; border-left: 4px solid #00ccff; padding: 12px 16px; margin: 15px 0; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 8px; }
+  .badge-usbjtag { background: #00ff88; color: #000; }
+  .badge-hpt { background: #ffaa00; color: #000; }
+  .badge-both { background: #ff44ff; color: #000; }
+  pre { background: #0d1117; padding: 16px; border-radius: 6px; overflow-x: auto; border: 1px solid #333; }
+  .flash-map { font-family: 'Consolas', monospace; line-height: 1.8; }
+  .region-boot { color: #ff4444; }
+  .region-nvm { color: #ffaa00; }
+  .region-bootblock { color: #00ff88; }
+  .region-os { color: #00ccff; }
+  .region-cal { color: #ff44ff; }
+</style>
+</head>
+<body>
+
+<h1>T87A 5-Patch Dual Unlock Recipe</h1>
+<p>Enables both <span class="badge badge-usbjtag">USBJTAG HS-CAN</span> kernel execute and <span class="badge badge-hpt">HP Tuners</span> unlock recognition on T87A TCM modules (SPC564A80).</p>
+
+<div class="success">
+<strong>VERIFIED WORKING (2026-03-21):</strong> Full 4MB HS-CAN read at 32 KB/s + HPT reports "All Unlocked" on same TCM.<br>
+<strong>Checksum recalculation MANDATORY</strong> &mdash; tool: <code>tools/t87a_patch.py</code><br>
+<strong>USBJTAG tool verified:</strong> Our patch tool produces identical checksums to USBJTAG's own output (CS1=0x5685, CS2=0x1898 for OS 24288836).<br>
+<strong>Re-verified 2026-04-21:</strong> cal 24288836 + this recipe, applied via NT-Link BAM Fast Mode write, confirmed across all three tools on MCU ID 5640 Version 2.0:
+<ul>
+  <li>NT-Link BAM write (Fast Mode): 4 MB in 20.7 s at 202 KB/s &mdash; byte-identical readback</li>
+  <li>NT-Link HS-CAN read (post kernel upload): 4 MB in 2:14 at 31.2 KB/s &mdash; 100% match to source</li>
+  <li>HP Tuners Unlock Check: PASSED (uses $1A B4 unlock-fingerprint PID + $27 seed-key)</li>
+</ul>
+</div>
+
+<h2>The 5 Patches</h2>
+
+<table>
+<tr>
+  <th>#</th>
+  <th>Flash Offset</th>
+  <th>Stock Bytes</th>
+  <th>Patched Bytes</th>
+  <th>PowerPC Instruction</th>
+  <th>Purpose</th>
+  <th>Tool</th>
+</tr>
+<tr class="patch-usbjtag">
+  <td>1</td>
+  <td><code>0x02B39C</code></td>
+  <td><code>4B FF FD 11</code></td>
+  <td><code>39 60 00 01</code></td>
+  <td><code>li r11, 1</code></td>
+  <td>Set "valid" flag value (r11 = 1)</td>
+  <td><span class="badge badge-usbjtag">USBJTAG</span></td>
+</tr>
+<tr class="patch-usbjtag">
+  <td>2</td>
+  <td><code>0x02B3A0</code></td>
+  <td><code>48 00 01 C4</code></td>
+  <td><code>99 6C DB 23</code></td>
+  <td><code>stb r11, -0x24DD(r12)</code></td>
+  <td>Write "valid" flag &mdash; bypasses signature check</td>
+  <td><span class="badge badge-usbjtag">USBJTAG</span></td>
+</tr>
+<tr class="patch-hpt">
+  <td>3</td>
+  <td><code>0x034648</code></td>
+  <td><code>40 82 00 60</code></td>
+  <td><code>48 00 00 60</code></td>
+  <td><code>b +0x60</code> (was <code>bne +0x60</code>)</td>
+  <td>HPT credential validation bypass</td>
+  <td><span class="badge badge-hpt">HPT</span></td>
+</tr>
+<tr class="patch-hpt">
+  <td>4</td>
+  <td><code>0x0346AC</code></td>
+  <td><code>40 82 00 18</code></td>
+  <td><code>60 00 00 00</code></td>
+  <td><code>nop</code> (was <code>bne +0x18</code>)</td>
+  <td>HPT lock check bypass</td>
+  <td><span class="badge badge-hpt">HPT</span></td>
+</tr>
+<tr class="patch-hpt">
+  <td>5</td>
+  <td><code>0x034A70</code></td>
+  <td><code>40 82 00 08</code></td>
+  <td><code>48 00 00 08</code></td>
+  <td><code>b +0x08</code> (was <code>bne +0x08</code>)</td>
+  <td>HPT $34 signature bypass</td>
+  <td><span class="badge badge-hpt">HPT</span></td>
+</tr>
+</table>
+
+<div class="info">
+<strong>Note:</strong> Patches 1+2 are a pair &mdash; both must be applied together. Patch 1 sets <code>r11 = 1</code>, Patch 2 writes that value as the "kernel valid" flag. Without Patch 1, the <code>stb</code> writes garbage and the signature check still fails (NRC 0x85).
+</div>
+
+<h2>Flash Memory Map</h2>
+<div class="flash-map">
+<pre>
+<span class="region-boot">0x000000 - 0x007FFF  Boot Sector (32KB)    DO NOT ERASE - MCU reset vector</span>
+<span class="region-nvm">0x008000 - 0x01FFFF  NVM / Adaptation      DO NOT ERASE - VIN, seed keys, PNs</span>
+<span class="region-bootblock">0x020000 - 0x03FFFF  Boot Block (128KB)    USBJTAG patches 1+2 live here
+                                            HS-CAN kernel auto-protects this region</span>
+<span class="region-os">0x040000 - 0x07FFFF  OS Code (256KB)       HPT patches 3+4+5 live here
+0x080000 - 0x17FFFF  Calibration (1MB)     Safe to read/write
+0x180000 - 0x3FFFFF  OS Code (2.5MB)       Safe to read/write</span>
+</pre>
+</div>
+
+<h2>How It Works</h2>
+
+<h3>USBJTAG Kernel Signature Bypass (Patches 1+2)</h3>
+<p>The stock bootloader at 0x020000 calls a signature validation function before executing any uploaded kernel. The function returns a pass/fail result. USBJTAG's patch replaces the function CALL with a direct write of "1" (valid) to the result flag location, skipping the validation entirely.</p>
+<pre>
+Stock code:
+  0x02B39C:  4B FF FD 11    bl   sig_validate    ; call signature checker
+  0x02B3A0:  48 00 01 C4    b    next_step       ; continue (result in flag)
+
+USBJTAG patch:
+  0x02B39C:  39 60 00 01    li   r11, 1          ; r11 = "valid"
+  0x02B3A0:  99 6C DB 23    stb  r11, -0x24DD(r12) ; write flag = valid
+</pre>
+
+<h3>HPT Unlock Recognition (Patches 3+4+5)</h3>
+<p>HP Tuners checks three branch instructions in the OS code to determine if the module is "unlocked". Stock code uses conditional branches (<code>bne</code>) that enforce lock checks. HPT patches convert these to unconditional branches (<code>b</code>) or NOPs, bypassing the lock validation.</p>
+
+<h2>Verified OS Versions</h2>
+<p>These patch offsets are confirmed identical across all tested T87A OS versions with the standard boot block layout:</p>
+<table>
+<tr><th>OS PN</th><th>Transmission</th><th>Status</th></tr>
+<tr><td>24288836</td><td>10L80/10L90</td><td>VERIFIED (2026-03-21, re-verified 2026-04-21 on MCU ID 5640 Version 2.0) &mdash; dual unlock + HS-CAN read + HPT "All Unlocked" + checksums valid &mdash; 3-tool validation</td></tr>
+<tr><td>24272182</td><td>Mixed</td><td>Patched, untested</td></tr>
+<tr><td>24281243</td><td>TBD</td><td>Patched, untested</td></tr>
+<tr><td>24283721</td><td>8L45 (CT6)</td><td>Patched, untested</td></tr>
+<tr><td>24285377</td><td>TBD</td><td>Patched, untested</td></tr>
+<tr><td>24286913</td><td>TBD</td><td>Patched, untested</td></tr>
+<tr><td>24288259</td><td>10L</td><td>Patched, untested</td></tr>
+<tr><td>24288574</td><td>TBD</td><td>Patched, untested</td></tr>
+<tr><td>24288835</td><td>8L90</td><td>Patched, untested</td></tr>
+<tr><td>24291283</td><td>8L90 (CTSV)</td><td>Patched, untested</td></tr>
+<tr><td>24293216</td><td>10L80/10L90</td><td>Patched, untested</td></tr>
+</table>
+
+<h2>Application Methods</h2>
+
+<h3>Method 1: JTAG (Full Flash)</h3>
+<ol>
+<li>Apply all 5 patches to a full 4MB flash file</li>
+<li>JTAG flash the entire file</li>
+<li>Result: Complete dual unlock in one step</li>
+</ol>
+
+<h3>Method 2: USBJTAG BAM + Feather HS-CAN (Two-Step)</h3>
+<ol>
+<li>USBJTAG BAM: Write full flash file with USBJTAG patches (sets up boot block at 0x020000)</li>
+<li>Feather HS-CAN: Write HPT-patched stock OS (kernel protects 0x020000-0x03FFFF)</li>
+<li>Result: USBJTAG boot block preserved + HPT-unlocked OS</li>
+</ol>
+
+<h3>Method 3: Feather BAM Only</h3>
+<ol>
+<li>Prepare BAM format file (strip first 128KB from full flash)</li>
+<li>BAMWRITE via Feather (writes 0x020000+ only, boot sector at 0x000000 untouched)</li>
+<li>Result: OS region updated, boot sector preserved</li>
+</ol>
+
+<div class="warning">
+<strong>CRITICAL RULES:</strong>
+<ul>
+<li>NEVER erase sectors 0x000000-0x01FFFF on a running TCM &mdash; this bricks the boot sector</li>
+<li>NEVER bulk-erase then write &mdash; always erase+write per sector</li>
+<li>HS-CAN write automatically protects 0x020000-0x03FFFF (boot block)</li>
+<li>BAM write starts at 0x020000 &mdash; cannot access boot sector</li>
+<li>Always have JTAG/BAM recovery available before testing writes</li>
+</ul>
+</div>
+
+<h2>Hardware Reference</h2>
+<table>
+<tr><td>MCU</td><td>SPC564A80 (Freescale/NXP), 120MHz PowerPC e200z4</td></tr>
+<tr><td>MCU ID</td><td>5640, Version 2.0</td></tr>
+<tr><td>IDCODE</td><td>2AE02041</td></tr>
+<tr><td>OnCE JTAG ID</td><td>0x07C2601D</td></tr>
+<tr><td>Flash Module 0 MCR</td><td>C3F88000 = 0x05408600</td></tr>
+<tr><td>Flash Module 1 MCR</td><td>C3F8C000 = 0x05010600</td></tr>
+<tr><td>Flash Base</td><td>0x00000000</td></tr>
+<tr><td>Flash Size</td><td>4MB (4,194,304 bytes)</td></tr>
+<tr><td>Seed-Key Algo</td><td>135 (0x87) &mdash; 5-byte AES-128</td></tr>
+<tr><td>CAN IDs</td><td>Tester: 0x7E2, ECU: 0x7EA</td></tr>
+<tr><td>CAN Baud</td><td>500 kbps</td></tr>
+</table>
+
+<h2>USBJTAG Kernel</h2>
+<table>
+<tr><td>Size</td><td>1,980 bytes</td></tr>
+<tr><td>Load Address</td><td>0x40010000</td></tr>
+<tr><td>$34 Format</td><td>Size-based: <code>34 00 00 07 BC</code></td></tr>
+<tr><td>$36 Format</td><td>Single-shot: <code>36 80 40 01 00 00</code> + kernel data</td></tr>
+<tr><td>Heartbeat</td><td><code>55 53 42 4A 54 41 47</code> ("USBJTAG") on 0x7EA</td></tr>
+<tr><td>Read Command</td><td><code>A0 [addr:4] [size:3]</code> &mdash; streams data on 0x7EA</td></tr>
+<tr><td>Read Speed</td><td>32.1 KB/s (4MB in ~128s)</td></tr>
+</table>
+
+<h2>Checksum Recalculation</h2>
+<p>After applying patches, Boot Block checksums <strong>MUST</strong> be recalculated. Without valid checksums, the bootloader silently rejects the patched code.</p>
+
+<table>
+<tr><th>Checksum</th><th>Algorithm</th><th>Address</th><th>Storage</th></tr>
+<tr><td>CS1</td><td>CRC16-IBM (poly 0x8005, reflected)</td><td>0x028720</td><td>2 bytes, byte-swapped</td></tr>
+<tr><td>CS2</td><td>Wordsum (big-endian 16-bit words)</td><td>0x028700</td><td>2 bytes, two's complement</td></tr>
+</table>
+
+<p><strong>Order matters:</strong> CS1 must be written first, then CS2 recalculated (CS2 range includes CS1 location).</p>
+
+<h3>Patch Tool</h3>
+<pre>
+# Apply patches + recalculate checksums:
+python tools/t87a_patch.py input.bin [output.bin]
+
+# Verify existing file:
+python tools/t87a_patch.py --verify file.bin
+
+# Batch patch all bins in a directory:
+python tools/t87a_patch.py --batch directory/
+</pre>
+
+<h2>Notes</h2>
+<ul>
+<li>HPT may only require P3 (0x034A70) for unlock detection &mdash; P1/P2 included for safety, needs further testing</li>
+<li>USBJTAG tool recalculates checksums automatically when it patches &mdash; our tool matches its output exactly</li>
+<li>Boot sector (0x000000-0x007FFF) is identical across ALL T87A bins &mdash; never needs patching</li>
+<li>All 5 patches + 2 checksums = 17 bytes changed total in the boot block (0x020000-0x03FFFF)</li>
+</ul>
+
+<p style="color: #666; margin-top: 40px; font-size: 12px;">
+J2534 Pass-Thru Project &mdash; Feather M4 CAN (SAME51) &mdash; Updated 2026-04-21 &mdash; VERIFIED: 3-tool validation (NT-Link BAM write + NT-Link HS-CAN read + HPT Unlock Check) on MCU ID 5640 Version 2.0, cal 24288836
+</p>
+
+</body>
+</html>
