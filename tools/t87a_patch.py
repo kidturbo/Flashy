@@ -9,21 +9,52 @@ VERIFIED WORKING: 2026-03-21
   - Kernel: USBJTAG heartbeat after 1 frame
   - HPT: Reports "All Unlocked"
   - Checksums: Match USBJTAG tool output exactly
-  - Tested on OS 24288836
+  - Tested on OS 24288836 (primary bench-verified)
+  - 2026-04-22: per-OS offset table added (OS_PATCHES). 24286985 v2 bin
+    generated with correct offsets — untested on bench as of this writing.
 
 Usage:
-    python t87a_patch.py <input.bin> [output.bin]
+    python t87a_patch.py <input.bin> [output.bin] [--no-bam]
     python t87a_patch.py --verify <file.bin>
     python t87a_patch.py --batch <directory>
+
+Flags:
+    --no-bam   Skip emission of the legacy -BAM.bin sidecar (kept for historical
+               BAM-only workflows; no longer needed now that BAM writes the full
+               image and we handle the 0x020000 offset in firmware).
+
+Per-OS offsets:
+  - Default (24288836 recipe) is used unless the OS PN at 0x014638 matches a
+    key in OS_PATCHES. Adding a new OS means adding its entry to OS_PATCHES.
+    See the docstring above OS_PATCHES for fingerprint-based offset discovery.
 """
 
 import struct
 import sys
 import os
 import shutil
+import zlib
 
-# ── 5-Patch Recipe ──────────────────────────────────────────────
-PATCHES = [
+# ── Per-OS 5-Patch Recipe Table ─────────────────────────────────
+#
+# How to add a new OS variant:
+#   1. Find the STOCK (pre-5-patch) bin for the OS.
+#   2. Locate P1 with this fingerprint fragment:
+#        3B E0 00 01 ... 63 XX YY ZZ ... B3 XD 00 00 2C 1F 00 00
+#      The `40 82 NN NN` bne IMMEDIATELY after the 2C1F0000 cmpwi is the P1 site.
+#   3. P2 is at P1 + 0x64 (stable intra-function offset on studied OSes).
+#   4. Locate P3 with fragment:  38 7E 01 1A 7F 44 D3 78 7F A5 EB 78
+#      P3 = fragment offset + 0x18.
+#   5. Locate P3a/P3b using this longer fragment:
+#        7D 5C 50 AE 2C 0A 00 80 40 82 00 0C <bl-4B> <b-48>
+#      P3a = offset of the bl (first 4B FF FD XX)
+#      P3b = P3a + 4 (the b that follows)
+#   6. Sanity-check each candidate: expected_old bytes must appear at the offset
+#      in the stock bin BEFORE adding the entry here.
+#
+# DEFAULT table is the 24288836 recipe — matches OSes whose compiler laid out
+# the HPT check region byte-for-byte with 836 (includes 24293216).
+DEFAULT_PATCHES = [
     # (offset, old_bytes, new_bytes, description)
     (0x02B39C, bytes([0x4B, 0xFF, 0xFD, 0x11]), bytes([0x39, 0x60, 0x00, 0x01]),
      "USBJTAG P3a: li r11,1 (set valid flag)"),
@@ -37,6 +68,40 @@ PATCHES = [
      "HPT P3: sig bypass (bne -> b)"),
 ]
 
+# Per-OS overrides. Key = OS PN as int (read from 0x014638).
+# Verified 2026-04-22 on stock bins and byte-for-byte code inspection.
+OS_PATCHES = {
+    # OS 24286985 — different compiler build, P1/P2/P3 shifted +0xE8/+0xE8/+0x120,
+    # and USBJTAG P3a/P3b shifted +4 (cmpwi r10,0x80 at 0x02B398, bne at 0x02B39C).
+    # Written v2 bin 2026-04-22 (CRC32 0x75FC6FB7, MD5 bdbc13fd…).
+    24286985: [
+        (0x02B3A0, bytes([0x4B, 0xFF, 0xFD, 0x11]), bytes([0x39, 0x60, 0x00, 0x01]),
+         "USBJTAG P3a [985]: li r11,1 (set valid flag)"),
+        (0x02B3A4, bytes([0x48, 0x00, 0x01, 0xC4]), bytes([0x99, 0x6C, 0xDB, 0x23]),
+         "USBJTAG P3b [985]: stb r11,-0x24DD(r12) (write valid flag)"),
+        (0x034730, bytes([0x40, 0x82, 0x00, 0x60]), bytes([0x48, 0x00, 0x00, 0x60]),
+         "HPT P1 [985]: credential bypass (bne -> b)"),
+        (0x034794, bytes([0x40, 0x82, 0x00, 0x18]), bytes([0x60, 0x00, 0x00, 0x00]),
+         "HPT P2 [985]: lock check bypass (bne -> nop)"),
+        (0x034B90, bytes([0x40, 0x82, 0x00, 0x08]), bytes([0x48, 0x00, 0x00, 0x08]),
+         "HPT P3 [985]: sig bypass (bne -> b)"),
+    ],
+}
+
+
+def get_patches_for_os(data):
+    """Select the right patch table based on OS PN in the bin."""
+    os_pn = struct.unpack('>I', data[OS_PN_OFFSET:OS_PN_OFFSET + 4])[0]
+    if os_pn in OS_PATCHES:
+        return OS_PATCHES[os_pn], os_pn, "per-OS"
+    return DEFAULT_PATCHES, os_pn, "default-836"
+
+
+# Backwards-compatible alias — some call sites still read PATCHES directly.
+# This yields the default table; use get_patches_for_os(data) when you have
+# the bin contents to pick the correct per-OS offsets.
+PATCHES = DEFAULT_PATCHES
+
 # ── Checksum Locations ──────────────────────────────────────────
 # Boot Block segment (from UniversalPatcher t87a.xml)
 CS1_ADDR = 0x028720  # CRC16-IBM, stored byte-swapped, 2 bytes
@@ -49,6 +114,8 @@ CS2_RANGES = [(0x020000, 0x0286FF), (0x028702, 0x03FFFF)]
 
 # OS PN location
 OS_PN_OFFSET = 0x014638
+# Cal ID (companion calibration part number, 4 bytes BE, immediately after OS PN)
+CAL_ID_OFFSET = 0x01463C
 
 
 def crc16_ibm(data_bytes):
@@ -93,9 +160,25 @@ def calc_checksums(data):
 
 
 def apply_patches(data):
-    """Apply 5-patch recipe. Returns (patched_data, patch_count)."""
+    """Apply 5-patch recipe. Returns patch_count.
+
+    Selects per-OS offsets from OS_PATCHES if the OS PN is known, else
+    falls back to the 24288836 default offsets.
+
+    SAFETY: aborts if bytes at any target offset don't match the expected
+    'old' pattern — compiler output for different OS versions places the
+    credential/signature checks at different addresses. Writing the 'new'
+    bytes blindly at fixed offsets in those OSes silently corrupts
+    unrelated functions and produces broken bins that can brick a TCM.
+    Proven 2026-04-22 on OS 24286985 where the real HPT check is at
+    0x034730, not 0x034648 — added to OS_PATCHES so subsequent runs on
+    985 bins now use the correct offsets.
+    """
+    patches, os_pn, source = get_patches_for_os(data)
+    print(f"  Using {source} patch table for OS {os_pn}")
     patched = 0
-    for offset, old, new, desc in PATCHES:
+    mismatches = []
+    for offset, old, new, desc in patches:
         current = data[offset:offset + 4]
         if current == new:
             print(f"  [skip] {desc} — already patched")
@@ -105,9 +188,19 @@ def apply_patches(data):
             print(f"  [patch] {desc}")
             patched += 1
         else:
-            print(f"  [WARN] {desc} — unexpected value 0x{current.hex().upper()}")
-            data[offset:offset + 4] = new
-            patched += 1
+            mismatches.append((offset, desc, bytes(current).hex().upper(),
+                               bytes(old).hex().upper()))
+            print(f"  [ERR] {desc} @ 0x{offset:06X} — got 0x{current.hex().upper()}, "
+                  f"expected 0x{old.hex().upper()}")
+    if mismatches:
+        print()
+        print("ABORTING: patch offsets do not match this OS's compiler output.")
+        print("Writing the patch anyway would corrupt unrelated functions and")
+        print("produce a bin that may brick a TCM when flashed. This OS needs")
+        print("per-OS offset re-validation — disassemble the bootloader around")
+        print("the patched addresses to find the real credential / signature")
+        print("check locations, then add an OS_PATCHES entry for this OS PN.")
+        raise SystemExit(1)
     return patched
 
 
@@ -167,10 +260,15 @@ def main():
 
         print(f"File: {os.path.basename(path)} ({len(data):,} bytes)")
         os_pn = struct.unpack('>I', data[OS_PN_OFFSET:OS_PN_OFFSET + 4])[0]
-        print(f"OS PN: {os_pn}")
+        cal_id = struct.unpack('>I', data[CAL_ID_OFFSET:CAL_ID_OFFSET + 4])[0]
+        file_crc = zlib.crc32(data) & 0xFFFFFFFF
+        print(f"OS PN : {os_pn}   (@ 0x{OS_PN_OFFSET:06X})")
+        print(f"Cal ID: {cal_id}   (@ 0x{CAL_ID_OFFSET:06X})")
+        print(f"CRC32 : 0x{file_crc:08X}   (full 4 MB)")
 
-        print("\nPatches:")
-        for offset, old, new, desc in PATCHES:
+        patches, _, source = get_patches_for_os(data)
+        print(f"\nPatches ({source} table):")
+        for offset, old, new, desc in patches:
             current = data[offset:offset + 4]
             if current == new:
                 status = "PATCHED"
@@ -191,8 +289,11 @@ def main():
             print("\nChecksums INVALID — run without --verify to fix.")
         return
 
-    input_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    no_bam = '--no-bam' in sys.argv
+
+    input_path = args[0]
+    output_path = args[1] if len(args) > 1 else None
 
     with open(input_path, 'rb') as f:
         data = bytearray(f.read())
@@ -206,9 +307,11 @@ def main():
         sys.exit(1)
 
     os_pn = struct.unpack('>I', data[OS_PN_OFFSET:OS_PN_OFFSET + 4])[0]
+    cal_id = struct.unpack('>I', data[CAL_ID_OFFSET:CAL_ID_OFFSET + 4])[0]
     print(f"T87A 5-Patch Dual Unlock Tool")
-    print(f"Input: {os.path.basename(input_path)}")
-    print(f"OS PN: {os_pn}")
+    print(f"Input : {os.path.basename(input_path)}")
+    print(f"OS PN : {os_pn}   (@ 0x{OS_PN_OFFSET:06X})")
+    print(f"Cal ID: {cal_id}   (@ 0x{CAL_ID_OFFSET:06X})")
 
     print("\nApplying patches:")
     count = apply_patches(data)
@@ -229,13 +332,14 @@ def main():
     with open(output_path, 'wb') as f:
         f.write(data)
     print(f"\nSaved: {output_path}")
+    print(f"CRC32: 0x{zlib.crc32(data) & 0xFFFFFFFF:08X}   (full 4 MB)")
 
-    # Also create BAM version
-    bam_data = data[0x020000:] + bytes([0xFF] * 0x020000)
-    bam_path = output_path.replace('.bin', '-BAM.bin')
-    with open(bam_path, 'wb') as f:
-        f.write(bam_data)
-    print(f"BAM:   {bam_path}")
+    if not no_bam:
+        bam_data = data[0x020000:] + bytes([0xFF] * 0x020000)
+        bam_path = output_path.replace('.bin', '-BAM.bin')
+        with open(bam_path, 'wb') as f:
+            f.write(bam_data)
+        print(f"BAM:   {bam_path}")
 
 
 def batch_patch(directory):
@@ -255,8 +359,9 @@ def batch_patch(directory):
 
         os_pn = struct.unpack('>I', data[OS_PN_OFFSET:OS_PN_OFFSET + 4])[0]
 
-        # Skip already-patched files
-        already = all(data[off:off+4] == new for off, old, new, desc in PATCHES)
+        # Skip already-patched files — use per-OS table to decide
+        patches_for_this, _, _ = get_patches_for_os(data)
+        already = all(data[off:off+4] == new for off, old, new, desc in patches_for_this)
         cs1_ok, cs2_ok, _, _, _, _ = verify_checksums(data)
         if already and cs1_ok and cs2_ok:
             print(f"  [skip] OS {os_pn} — already patched with valid checksums")

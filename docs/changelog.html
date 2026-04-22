@@ -115,6 +115,92 @@
 </div>
 
 <!-- ============================================================ -->
+<h2>v1.4.5 &mdash; T87A CAL + Full Write proven, cross-OS safety gate, FLASHY branding <span class="date">2026-04-22</span></h2>
+<div class="card">
+    <p><span class="tag tag-added">Added</span> <strong>First bench-verified Flashy CAL &amp; Full Write on T87A without bricking.</strong> Root cause of earlier brick attempts identified as an incorrect <code>$6C</code> size-field encoding. Per-module encoding mined from NT-Link reference capture, applied to Flashy, validated end-to-end.</p>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">T87A write fixes</h3>
+    <ul>
+        <li><strong>$6C size-field per-module encoding</strong> &mdash; Flashy was hardcoded to <code>0x011000</code> for all addresses; correct values are <code>0x011000</code> (M0 LMSR, addr &lt; 0x080000), <code>0x021000</code> (M1 LMSR, 0x080000&ndash;0x0FFFFF), <code>0x031000</code> (HSR, addr &ge; 0x100000). Fix in <code>extkern_write_block</code>.</li>
+        <li><strong>Cross-OS safety gate</strong> &mdash; <code>HSWRITE</code> now reads source bin OS PN at flash offset <code>0x014638</code> and compares against live TCM OSID via Mode 9 PID 4 <em>before</em> any kernel load or flash touch. Mismatch &rarr; aborts with a clear banner, TCM untouched. Prevents the cross-OS boot-anchor brick mechanism.</li>
+        <li><strong>HSWRITE auto-bring-up</strong> &mdash; no longer requires a prior <code>HSREAD</code>/<code>CALREAD</code> to load the kernel. Mirrors <code>CALWRITE</code>'s internal session flow.</li>
+        <li><strong>POWER-CYCLE banner</strong> added to <code>HSWRITE</code> completion (matches <code>CALWRITE</code>). Makes post-write recovery step explicit.</li>
+        <li><strong>No KEXIT after write</strong> &mdash; captured bench evidence shows post-write kernel state is unstable for the MCU-reset path. Writes now print the power-cycle banner instead of attempting KEXIT.</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Per-OS patch recipe (tools/t87a_patch.py)</h3>
+    <ul>
+        <li><strong>Safety gate in <code>apply_patches()</code></strong> &mdash; aborts if any patch offset's "old" bytes don't match expected. Prevents silent corruption of bins where compiler output places checks at different addresses. Proven on OS 24286985 (checks at 0x034730 / 0x034794 / 0x034B90, not 0x034648 / 0x0346AC / 0x034A70).</li>
+        <li><strong>Per-OS offset table</strong> &mdash; <code>OS_PATCHES</code> dict keyed by OS PN lets each OS have its own patch addresses. Default table matches OS 24288836; OS 24286985 entry registered with correct shifted offsets.</li>
+        <li><strong>Regenerated 24286985 bin</strong> &mdash; <code>T87A_OS-24286985_Unlock_Patched_v2.bin</code> built with correct offsets, bench-verified full-flow (Flashy CALREAD + HSWRITE + power-cycle + boot).</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">FLASHY protocol branding</h3>
+    <ul>
+        <li><strong>Kernel ACK rebranded</strong> &mdash; Private kernel binary patched so the 0x7EA acknowledgment frame bytes spell <code>"FLASHY "</code> (46 4C 41 53 48 59 20) instead of the legacy <code>"USBJTAG"</code> bytes. Flashy-project ownership visible on the wire.</li>
+        <li>Flashy byte checks accept <strong>either</strong> signature (<code>FLA</code> or <code>USB</code> prefix) &mdash; drop-in compat with existing tool ecosystems.</li>
+        <li>0x101 broadcast pad stamping (<code>FLSHY</code> / <code>JACKD</code> / <code>IN!!!</code>) was already present; documented and indexed.</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">UX</h3>
+    <ul>
+        <li><strong>Auto-menu at boot</strong> &mdash; Flashy now enters the interactive menu immediately. RAW command mode still available via menu item 6.</li>
+        <li><strong>File path prompts</strong> in CAL Write &amp; Full Write menu items &mdash; type the source path inline, no need to set <code>g_sd_filename</code> separately.</li>
+        <li>Bin filenames reorganized to <code>&lt;MODULE&gt;_&lt;VIN&gt;_&lt;OSID&gt;_&lt;OP&gt;_&lt;timestamp&gt;.bin</code> &mdash; groups by ECU in file explorer.</li>
+        <li>Log labels updated: "Rollin Smoke T87A kernel" &rarr; "FLASHY T87A kernel".</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Documentation</h3>
+    <ul>
+        <li><a href="T87A-Unlock-Recipe.html">T87A-Unlock-Recipe.html</a> gains a <strong>Cross-OS Write Compatibility matrix</strong> explaining which write paths support OS swaps vs. same-OS-only (BAM / JTAG safe for cross-OS; HS Full Write same-OS only).</li>
+    </ul>
+
+    <p style="margin-top: 0.75rem; font-size: 0.9rem; color: #8b949e;">
+        <strong>Footprint:</strong> Flash ~31% / RAM ~49.5%. Bench hours this release: ~14. Bricks along the way: 3 (each led to a fix).
+    </p>
+</div>
+
+<!-- ============================================================ -->
+<h2>v1.4.2 &mdash; T87A kernel exit + OSID + SD browser <span class="date">2026-04-22</span></h2>
+<div class="card">
+    <p><span class="tag tag-added">Added</span> Hands-free T87A Rollin Smoke kernel exit. After HSREAD / CALREAD, the firmware now sends a 16&nbsp;MB <code>$A0</code> kill stream that causes the MCU to reset itself and cold-boot the OS within ~2 minutes. <strong>No power cycle required.</strong> Mined from a bench capture showing the kernel's final payload is a PowerPC <code>blr</code> (4E 80 00 20) &mdash; the kernel's own return-from-main triggers the MCU reset path.</p>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">T87A improvements</h3>
+    <ul>
+        <li><strong><code>AUTOKEXIT</code> on by default</strong> &mdash; every HS-CAN read cleans up the kernel automatically. <code>AUTOKEXIT off</code> defers cleanup until <code>MENU &rarr; 9 Reset</code>.</li>
+        <li><strong>Standalone <code>KEXIT</code> command</strong> &mdash; run the kernel-exit sequence manually after any read session.</li>
+        <li><strong>Smart Reset menu button</strong> &mdash; on T87A, MENU item 9 (Reset) automatically routes through the kernel-exit kill stream instead of the UDS <code>$11&nbsp;01</code> that the resident kernel silently ignores.</li>
+        <li><strong>Reordered T87A menu</strong> &mdash; grouped by speed path (High Speed vs. Bench Tool) with consistent naming:
+            <br>Cal Read / Full Read / Cal Write / Full Write <em>[High Speed]</em>, BAM Read / BAM Write <em>[Bench Tool]</em>.</li>
+        <li><strong>CAL Read over Rollin Smoke kernel</strong> &mdash; 1 MB cal region dump in ~30 s over HS-CAN, auto-names to <code>/Read/CALREAD_&lt;OSID&gt;_&lt;timestamp&gt;.bin</code>.</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">OSID &amp; file naming</h3>
+    <ul>
+        <li><span class="tag tag-changed">Changed</span> OSID now reports the <strong>8-digit decimal OS Part Number</strong> (e.g. <code>24288836</code>) via OBD-II Mode 9 PID 4 (<code>$09&nbsp;04</code>), matching the naming convention used in <code>.bin</code> files. Falls back to GM <code>$1A&nbsp;B4</code> alphanumeric cal ID for modules that don't answer Mode 9.</li>
+        <li>All reads now land in <strong><code>/Read/</code></strong> on the SD card with consistent <code>&lt;OP&gt;_&lt;VIN&gt;_&lt;OSID&gt;_&lt;timestamp&gt;.bin</code> naming &mdash; HSREAD, CALREAD, BAMREAD, and E92 FULLREAD.</li>
+        <li>BAMREAD auto-reads the OS PN from flash offset <code>0x014638</code> after the dump completes and renames the file to embed it.</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">SD browser (serial terminal)</h3>
+    <ul>
+        <li><strong><code>SDLIST [path]</code></strong> &mdash; lists files <em>and</em> subdirectories (fixed prior root-only limitation). Defaults to <code>/</code>.</li>
+        <li><strong><code>SDTREE [path]</code></strong> &mdash; recursive listing, 3-level depth cap.</li>
+        <li><strong><code>SDSTAT</code></strong> &mdash; card total / used / free MB plus root-entry counts.</li>
+        <li><strong><code>SDPEEK</code></strong> upgraded to <code>xxd</code>-style output: <code>OFFSET: hex hex hex |ASCII|</code> rows.</li>
+    </ul>
+
+    <h3 style="color: var(--heading); font-size: 1rem; margin: 0.75rem 0 0.4rem;">Documentation</h3>
+    <ul>
+        <li><a href="T87A-Unlock-Recipe.html">T87A-Unlock-Recipe.html</a> rebuilt with an 11-OS <strong>Patched Examples library</strong> &mdash; one full 4&nbsp;MB image per OS version with CS1/CS2 checksums and file CRC32s. BAM-only sidecars retired (firmware now handles the 0x020000 offset internally).</li>
+    </ul>
+
+    <p style="margin-top: 0.75rem; font-size: 0.9rem; color: #8b949e;">
+        <strong>Footprint:</strong> Flash 29.8% (151&nbsp;KB / 508&nbsp;KB), RAM 49.5%. +3.7 KB vs. v1.4.0.
+    </p>
+</div>
+
+<!-- ============================================================ -->
 <h2>v1.4.0 &mdash; First Release <span class="date">2026-04-22</span></h2>
 <div class="card">
     <p><span class="tag tag-added">Added</span> First public release of <strong>Flashy</strong> &mdash; a clean-room, MIT-licensed J2534-style Pass-Thru tool. Built from public protocol documentation and reference manuals only. No commercial flash-tool source code, kernels, or proprietary IP referenced or included.</p>

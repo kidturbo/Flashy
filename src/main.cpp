@@ -1369,17 +1369,60 @@ static void cmd_kernel_read(const char *arg)
 static void cmd_init(const char *);        /* forward decls for chaining */
 static void cmd_algo(const char *);
 
-/* Self-contained OSID fetch — $1A B4 is the GM legacy "Cal/OS ID" identifier.
- * Avoids depending on the later g_osid global so we can forward-declare less. */
+/* T87A kernel-exit trailer — toggle + helper (definition after cmd_calread).
+ * Default ON: HSREAD/CALREAD run the 16 MB kill stream inline so the TCM
+ * kernel exits cleanly without a power cycle. Adds ~2 min to each session
+ * but eliminates the hand-power-cycle step. AUTOKEXIT off to disable. */
+static bool g_auto_kexit = true;  /* AUTOKEXIT on/off — default ON */
+static bool kexit_run_trailer_and_observe(void);
+
+/* Forward decls needed by cmd_t87a_calwrite (defined earlier in file than
+ * VIN/OSID helpers and the Rollin Smoke kernel uploader). */
+extern char g_vin[];
+extern char g_osid[];
+static bool read_vin_from_ecu(void);
+static bool read_osid_from_ecu(void);
+static bool hsread_upload_rollin_smoke(void);
+
+/* Short module tag for bin filenames: "T87A", "E38", "E92", etc. */
+static const char* module_name_for_filename(void);
+
+/* Self-contained OSID fetch. Prefer OBD-II Mode 9 PID 04 (decimal 8-digit PN
+ * like "24293216") to match .bin filename convention; fall back to GM $1A B4
+ * (16-char alphanumeric cal ID) if Mode 9 isn't answered. */
 static bool e92_read_osid_local(char *out, size_t n)
 {
-    uint8_t req[2] = { 0x1A, 0xB4 };
+    if (n == 0) return false;
+    out[0] = '\0';
     uds_msg_t resp;
-    int ret = uds_request(&g_isotp_link, req, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
+
+    /* Try OBD-II $09 04 first. Response: 49 04 <num_ids> <id0:16> ... */
+    uint8_t req9[2] = { 0x09, 0x04 };
+    int ret = uds_request(&g_isotp_link, req9, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
+    if (ret == UDS_OK && resp.data_len >= 2) {
+        uint16_t off = 1;              /* skip num_ids byte */
+        uint16_t end = off + 16;
+        if (end > resp.data_len) end = resp.data_len;
+        size_t j = 0;
+        for (uint16_t i = off; i < end && j < n - 1; i++) {
+            uint8_t c = resp.data[i];
+            if (c == 0x00) break;
+            if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
+                (c >= 'a' && c <= 'z')) {
+                out[j++] = (char)c;
+            }
+        }
+        out[j] = '\0';
+        if (j > 0) return true;
+    }
+
+    /* Fallback: GM $1A B4 (legacy Cal/OS ID). resp.data starts AFTER the
+     * stripped sub_function byte, so the first ID byte lives at
+     * resp.sub_function, the rest at resp.data[]. */
+    uint8_t req[2] = { 0x1A, 0xB4 };
+    ret = uds_request(&g_isotp_link, req, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
     if (ret != UDS_OK) return false;
     size_t j = 0;
-    /* resp.data starts AFTER the stripped sub_function byte, so the first
-     * ID byte lives at resp.sub_function, the rest at resp.data[]. */
     char first = (char)resp.sub_function;
     if (first >= ' ' && first <= '~') {
         if ((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') ||
@@ -1415,15 +1458,20 @@ static void cmd_e92_fullread(void)
     cmd_algo("e92");
 
     /* 3. OSID (best-effort; fall back to "E92" if the bootloader is still
-     *    in control and rejects $1A B4). */
+     *    in control and rejects both $09 04 and $1A B4). */
     char osid[20] = "E92";
     (void)e92_read_osid_local(osid, sizeof(osid));
     if (osid[0] == '\0') snprintf(osid, sizeof(osid), "E92");
 
-    /* 4. Build the filename and stash it for cmd_kernel_read to use. */
+    /* 4. Build the filename and stash it for cmd_kernel_read to use.
+     *    Drops into /Read/ alongside HSREAD/BAMREAD outputs. */
+    if (g_sd_ok) {
+        (void)g_sd.mkdir("/Read");
+    }
     char ts[20];
     format_timestamp(ts, sizeof(ts));
-    snprintf(g_sd_filename, sizeof(g_sd_filename), "%s-%s.bin", osid, ts);
+    snprintf(g_sd_filename, sizeof(g_sd_filename),
+             "/Read/E92_%s_FULLREAD_%s.bin", osid, ts);
     Serial.print("E92FULLREAD target: "); Serial.println(g_sd_filename);
 
     /* 5. Kernel. */
@@ -1968,10 +2016,16 @@ static int extkern_recv(uint8_t *out, uint32_t timeout_ms)
         uint8_t  rx_len;
         if (can_receive(&rx_id, rx_data, &rx_len) == 0) {
             if (rx_id == g_ecu_id) {
-                /* Skip kernel heartbeat frames (55 53 42 4A 54 41 47) */
-                if (rx_len == 7 && rx_data[0] == 0x55 && rx_data[1] == 0x53 &&
-                    rx_data[2] == 0x42 && rx_data[3] == 0x4A) {
-                    continue;  /* heartbeat — keep waiting for real data */
+                /* Skip kernel ACK/heartbeat frames. Signature is "FLASHY "
+                 * (46 4C 41 53 48 59 20) in the Flashy-branded Private Kernel.
+                 * Legacy USBJTAG signature (55 53 42 4A 54 41 47) also accepted
+                 * for cross-kernel compat. */
+                if (rx_len == 7 &&
+                    ((rx_data[0] == 0x46 && rx_data[1] == 0x4C &&
+                      rx_data[2] == 0x41 && rx_data[3] == 0x53) ||
+                     (rx_data[0] == 0x55 && rx_data[1] == 0x53 &&
+                      rx_data[2] == 0x42 && rx_data[3] == 0x4A))) {
+                    continue;  /* kernel ACK — keep waiting for real data */
                 }
                 memcpy(out, rx_data, rx_len);
                 return rx_len;
@@ -2029,9 +2083,13 @@ static bool extkern_wait_heartbeat(uint32_t timeout_ms)
                 }
                 Serial.println();
             }
+            /* FLASHY kernel ACK = 46 4C 41 53 48 59 20 ("FLASHY ")
+             * Legacy USBJTAG ACK = 55 53 42 4A 54 41 47 ("USBJTAG") — accepted too */
             if (rx_id == g_ecu_id && rx_len == 7 &&
-                rx_data[0] == 0x55 && rx_data[1] == 0x53 &&
-                rx_data[2] == 0x42 && rx_data[3] == 0x4A) {
+                ((rx_data[0] == 0x46 && rx_data[1] == 0x4C &&
+                  rx_data[2] == 0x41 && rx_data[3] == 0x53) ||
+                 (rx_data[0] == 0x55 && rx_data[1] == 0x53 &&
+                  rx_data[2] == 0x42 && rx_data[3] == 0x4A))) {
                 Serial.print("  EXTKERN found after ");
                 Serial.print(frame_count);
                 Serial.println(" frames");
@@ -2189,7 +2247,10 @@ static bool t87a_erase_sector(uint32_t addr, uint32_t sector_sel,
     uint8_t resp[8];
     int rlen = extkern_recv_any(resp, 30000);
     if (rlen < 7) return false;
-    if (resp[0] != 0x55 || resp[1] != 0x53 || resp[2] != 0x42) {
+    /* Accept FLASHY ("FLA" prefix = 46 4C 41) or legacy USBJTAG ("USB" = 55 53 42) */
+    bool is_flashy = (resp[0] == 0x46 && resp[1] == 0x4C && resp[2] == 0x41);
+    bool is_usbj   = (resp[0] == 0x55 && resp[1] == 0x53 && resp[2] == 0x42);
+    if (!is_flashy && !is_usbj) {
         return false;
     }
 
@@ -2358,11 +2419,27 @@ static bool extkern_write_block(uint32_t addr, const uint8_t *data,
     cmd[2] = (uint8_t)(addr >> 16);
     cmd[3] = (uint8_t)(addr >> 8);
     cmd[4] = (uint8_t)(addr);
-    /* Size field: T87A external kernel expects 0x011000, not raw byte count.
-     * From bus capture: $6C always uses 01 10 00 for 4KB blocks.
-     * E38 EXTKERN uses raw byte count (0x001000). */
+    /* Size field on T87A is NOT a byte count — it encodes the target
+     * flash module + sector type. Decoded from bench NT-Link Trans Write
+     * capture 2026-04-22 (T87A-NTLink-Trans-Write.csv):
+     *   0x011000 — Module 0 LMSR   (addr < 0x080000, low + mid blocks)
+     *   0x021000 — Module 1 LMSR   (0x080000 <= addr < 0x100000)
+     *   0x031000 — HSR dual-module (addr >= 0x100000)
+     * Flashy previously hardcoded 0x011000 for ALL addresses, which is
+     * the WRONG module selector for cal-region writes (0x080000+). The
+     * kernel silently ACKs but programs the wrong physical sector,
+     * leaving post-write flash in an inconsistent state → brick on
+     * reboot. Three confirmed bricks this way before this fix. See
+     * memory/t87a_cal_write_unsolved.md.
+     * E38 EXTKERN still uses raw byte count (different protocol). */
     if (g_t87a_detected) {
-        cmd[5] = 0x01; cmd[6] = 0x10; cmd[7] = 0x00;  /* T87A: 0x011000 */
+        if (addr < 0x080000) {
+            cmd[5] = 0x01; cmd[6] = 0x10; cmd[7] = 0x00;
+        } else if (addr < 0x100000) {
+            cmd[5] = 0x02; cmd[6] = 0x10; cmd[7] = 0x00;
+        } else {
+            cmd[5] = 0x03; cmd[6] = 0x10; cmd[7] = 0x00;
+        }
     } else {
         cmd[5] = (uint8_t)(data_len >> 16);
         cmd[6] = (uint8_t)(data_len >> 8);
@@ -2389,9 +2466,16 @@ static bool extkern_write_block(uint32_t addr, const uint8_t *data,
         Serial.println(addr, HEX);
         return false;
     }
-    if (resp[0] != 0x55 || resp[1] != 0x53 || resp[2] != 0x42 ||
-        resp[3] != 0x4A || resp[4] != 0x54 || resp[5] != 0x41 ||
-        resp[6] != 0x47) {
+    /* Accept FLASHY ACK ("FLASHY " = 46 4C 41 53 48 59 20)
+     * or legacy USBJTAG ACK ("USBJTAG" = 55 53 42 4A 54 41 47).
+     * Same frame shape, different branding — both are valid kernel completes. */
+    bool ack_flashy = (resp[0] == 0x46 && resp[1] == 0x4C && resp[2] == 0x41 &&
+                       resp[3] == 0x53 && resp[4] == 0x48 && resp[5] == 0x59 &&
+                       resp[6] == 0x20);
+    bool ack_usbj   = (resp[0] == 0x55 && resp[1] == 0x53 && resp[2] == 0x42 &&
+                       resp[3] == 0x4A && resp[4] == 0x54 && resp[5] == 0x41 &&
+                       resp[6] == 0x47);
+    if (!ack_flashy && !ack_usbj) {
         Serial.print("WRITE: bad ack at 0x");
         Serial.println(addr, HEX);
         return false;
@@ -3565,15 +3649,244 @@ static bool bam_read_flash(uint8_t *buf, uint32_t size, uint8_t &seq)
  * Uses external kernel (must be running) to erase + write flash.
  * Reads source data from SD card file.
  * Boot sector (0x020000-0x03FFFF) is protected — not erased or written. */
+/* ---------- T87A CAL Write — HS-CAN cal-only write via Rollin Smoke kernel
+ *
+ * Writes the 1 MB cal region (0x080000-0x17FFFF) to T87A flash. Strict
+ * subset of HSWRITE — never touches boot / NVM / boot-block. Accepts
+ * either a 1 MB cal-only source file (byte 0 = flash 0x080000) or a
+ * 4 MB full-flash source (byte 0x080000 = flash 0x080000).
+ *
+ * Safety: erase + write only touch the 3 cal sectors
+ *   0x080000 (256 KB M1 LMSR)
+ *   0x0C0000 (256 KB M1 LMSR)
+ *   0x100000 (512 KB HSR dual M0+M1)
+ * Boot sector (0x000000-0x03FFFF) and OS region (0x180000-0x3FFFFF)
+ * are untouched. Worst case rollback = BAMWRITE the prior HSREAD image. */
+static void cmd_t87a_calwrite(const char *arg)
+{
+    if (!g_can_initialized) { print_err("not initialized"); return; }
+    if (!g_sd_ok) { print_err("no SD card"); return; }
+
+    const char *fname = (arg && arg[0]) ? arg :
+                        (g_sd_filename[0] ? g_sd_filename : NULL);
+    if (!fname) {
+        print_err("usage: CALWRITE <path> — try /Read/CALREAD_<osid>_<ts>.bin");
+        return;
+    }
+
+    FsFile src = g_sd.open(fname, O_RDONLY);
+    if (!src) {
+        Serial.print("ERR: cannot open "); Serial.println(fname);
+        return;
+    }
+    uint32_t file_size = src.size();
+
+    /* Accept 1 MB (cal-only) or 4 MB (full-flash); everything else rejected */
+    uint32_t src_cal_offset = 0;
+    if (file_size == 0x100000UL) {
+        src_cal_offset = 0;
+    } else if (file_size == 0x400000UL) {
+        src_cal_offset = 0x080000;
+    } else {
+        Serial.print("ERR: file size must be 1 MB (cal-only) or 4 MB (full-flash), got ");
+        Serial.println(file_size);
+        src.close();
+        return;
+    }
+
+    Serial.print("CALWRITE: source ");
+    Serial.print(fname);
+    Serial.print(" (");
+    Serial.print(file_size);
+    Serial.print(" B, cal offset=0x");
+    Serial.print(src_cal_offset, HEX);
+    Serial.println(")");
+
+    /* Bring up the T87A kernel if not already running (same flow CALREAD uses). */
+    if (!g_extkern_active) {
+        Serial.println("CALWRITE: bringing up T87A kernel...");
+        g_tester_id = 0x7E2;
+        g_ecu_id    = 0x7EA;
+        seedkey_set_algo(SEEDKEY_T87);
+        isotp_init_link(&g_isotp_link, g_tester_id,
+                        g_isotp_send_buf, sizeof(g_isotp_send_buf),
+                        g_isotp_recv_buf, sizeof(g_isotp_recv_buf));
+        g_module = MODULE_T87;
+
+        t87_broadcast_reset();
+
+        bool have_vin  = read_vin_from_ecu();
+        bool have_osid = read_osid_from_ecu();
+        if (have_osid) { Serial.print("OSID:"); Serial.println(g_osid); }
+        if (have_vin)  { Serial.print("VIN:");  Serial.println(g_vin);  }
+
+        t87_broadcast_disable_comms();
+
+        if (!do_security_access()) {
+            print_err("CALWRITE: security access denied");
+            src.close();
+            return;
+        }
+        if (!g_t87a_detected) {
+            print_err("CALWRITE: not a T87A — aborting");
+            src.close();
+            return;
+        }
+
+        t87_enter_programming_mode();
+        delay(100);
+
+        if (!hsread_upload_rollin_smoke()) {
+            print_err("CALWRITE: kernel upload failed");
+            src.close();
+            return;
+        }
+        g_extkern_active = true;
+        delay(200);
+    }
+
+    Serial.println("CALWRITE:WARNING *** DO NOT POWER DOWN UNTIL COMPLETE ***");
+
+    /* Unlock flash (required before erase/write) */
+    Serial.println("CALWRITE: unlocking flash...");
+    t87a_flash_unlock();
+
+    /* Let kernel settle — HSWRITE capture showed ~2 s of heartbeats */
+    delay(2000);
+    { uint32_t rid; uint8_t rd[8]; uint8_t rl;
+      while (can_receive(&rid, rd, &rl) == 0) {} }
+
+    led_reading();  /* blue during erase */
+    g_reading_active = true;
+
+    /* Erase cal sectors only: addr in [0x080000, 0x180000) */
+    Serial.println("CALWRITE: erasing cal sectors (0x080000-0x17FFFF)...");
+    uint32_t erase_start = millis();
+    int erased = 0;
+    for (uint32_t s = 0; s < T87A_NUM_SECTORS; s++) {
+        const t87a_sector &sec = T87A_SECTORS[s];
+        if (sec.addr < 0x080000 || sec.addr >= 0x180000) continue;
+
+        Serial.print("CALWRITE:ERASE 0x"); Serial.print(sec.addr, HEX);
+        Serial.print(" mod=0x"); Serial.print(sec.mod_base, HEX);
+        if (!t87a_erase_sector(sec.addr, sec.sel, sec.mod_base, sec.use_hsr)) {
+            led_error();
+            Serial.println(" FAILED");
+            src.close();
+            g_reading_active = false;
+            return;
+        }
+        Serial.println(" OK");
+        erased++;
+    }
+    uint32_t erase_ms = millis() - erase_start;
+    Serial.print("CALWRITE: erase complete — ");
+    Serial.print(erased);
+    Serial.print(" sectors in ");
+    Serial.print(erase_ms / 1000);
+    Serial.println("s");
+
+    /* Write 4 KB blocks. Address range 0x080000 to 0x17FFFF (256 blocks). */
+    led_writing();
+    Serial.println("CALWRITE: writing flash...");
+    uint8_t block_buf[0x1000];
+    uint32_t blocks_written = 0;
+    uint32_t blocks_skipped = 0;
+    uint32_t write_start = millis();
+    uint32_t addr     = 0x080000;
+    uint32_t end_addr = 0x180000;
+    uint32_t total_blocks = (end_addr - addr) / 0x1000;
+
+    src.seekSet(src_cal_offset);
+
+    while (addr < end_addr) {
+        int rd = src.read(block_buf, 0x1000);
+        if (rd < 0x1000) {
+            memset(block_buf + rd, 0xFF, 0x1000 - rd);
+        }
+
+        /* Skip all-0xFF blocks — already erased, no write needed */
+        bool all_ff = true;
+        for (int i = 0; i < 0x1000; i++) {
+            if (block_buf[i] != 0xFF) { all_ff = false; break; }
+        }
+        if (all_ff) {
+            addr += 0x1000;
+            blocks_skipped++;
+            continue;
+        }
+
+        if (!extkern_write_block(addr, block_buf, 0x1000, 10000)) {
+            led_error();
+            Serial.print("CALWRITE:ERR write failed at 0x");
+            Serial.println(addr, HEX);
+            src.close();
+            g_reading_active = false;
+            return;
+        }
+
+        addr += 0x1000;
+        blocks_written++;
+
+        if (((blocks_written + blocks_skipped) % 32) == 0) {
+            Serial.print("CALWRITE:PROGRESS ");
+            Serial.print(blocks_written + blocks_skipped);
+            Serial.print("/");
+            Serial.print(total_blocks);
+            Serial.print(" (wrote=");
+            Serial.print(blocks_written);
+            Serial.print(" skipped_ff=");
+            Serial.print(blocks_skipped);
+            Serial.println(")");
+        }
+    }
+
+    src.close();
+    uint32_t write_ms = millis() - write_start;
+    Serial.print("CALWRITE:DONE wrote=");
+    Serial.print(blocks_written);
+    Serial.print(" skipped_ff=");
+    Serial.print(blocks_skipped);
+    Serial.print(" time=");
+    Serial.print(write_ms / 1000);
+    Serial.println("s");
+
+    g_reading_active = false;
+    led_celebrate();
+    led_connected();
+
+    /* IMPORTANT: do NOT run KEXIT after a write. Bench test 2026-04-22 showed
+     * the Rollin Smoke kernel enters a fundamentally different state after a
+     * successful flash write session:
+     *   - kernel bounds-checks $A0 reads to flash size (4 MB) post-write
+     *   - 16 MB kill stream plateaus at 4 MB instead of overshooting
+     *   - kernel never fires its blr exit path, stays silent-unresponsive
+     *   - further poking CAN corrupt flash and brick the TCM
+     * Writes end by telling the user to power-cycle. Matches every proprietary
+     * flash tool's behavior. See memory/t87a_kernel_exit_followup.md. */
+    g_auto_broadcast = false;
+    g_extkern_active = false;
+    Serial.println();
+    Serial.println("==========================================================");
+    Serial.println("CALWRITE:DONE — POWER-CYCLE the TCM now to restore the OS.");
+    Serial.println("  Do NOT attempt Reset / KEXIT — post-write kernel state is");
+    Serial.println("  unstable and further commands can brick the TCM.");
+    Serial.println("==========================================================");
+    print_ok();
+}
+
 static void cmd_t87a_hswrite(const char *arg)
 {
     if (!g_can_initialized) { print_err("not initialized"); return; }
-    if (!g_extkern_active) { print_err("external kernel not running"); return; }
     if (!g_sd_ok) { print_err("no SD card"); return; }
 
     /* Open source file from SD */
     const char *fname = (arg && arg[0]) ? arg :
-                        (g_sd_filename[0] ? g_sd_filename : "BAM_T87A_read.bin");
+                        (g_sd_filename[0] ? g_sd_filename : NULL);
+    if (!fname) {
+        print_err("usage: HSWRITE <path> — e.g. /Write/T87A_OS-XXXXXXXX_Unlock_Patched.bin");
+        return;
+    }
 
     FsFile src = g_sd.open(fname, O_RDONLY);
     if (!src) {
@@ -3592,6 +3905,139 @@ static void cmd_t87a_hswrite(const char *arg)
         print_err("file too small for T87A flash");
         src.close();
         return;
+    }
+
+    /* Read source-file OS PN from 0x014638 (GM T87A layout — same offset
+     * tools/t87a_patch.py uses) for the pre-write cross-OS safety check.
+     * Only meaningful for full 4 MB images. */
+    uint32_t src_os_pn = 0;
+    if (file_size >= 0x01463C) {
+        src.seekSet(0x014638);
+        uint8_t pn_bytes[4];
+        if (src.read(pn_bytes, 4) == 4) {
+            src_os_pn = ((uint32_t)pn_bytes[0] << 24) |
+                        ((uint32_t)pn_bytes[1] << 16) |
+                        ((uint32_t)pn_bytes[2] << 8)  |
+                         (uint32_t)pn_bytes[3];
+        }
+        src.seekSet(0);  /* rewind for the write loop below */
+    }
+
+    /* PRE-BRING-UP cross-OS safety check: read TCM OSID via a plain UDS
+     * $09 04 request (no auth, no kernel needed) and compare against
+     * source bin's OS PN. If mismatch, abort BEFORE loading the kernel
+     * so the TCM stays untouched — no residual kernel, no power-cycle
+     * needed. If the pre-check can't read OSID (e.g., kernel already
+     * resident from a prior session), we fall through and do the
+     * post-bring-up check later. */
+    if (src_os_pn != 0 && !g_extkern_active) {
+        /* Temporarily set T87A IDs so the UDS call goes to the right ECU */
+        g_tester_id = 0x7E2;
+        g_ecu_id    = 0x7EA;
+        isotp_init_link(&g_isotp_link, g_tester_id,
+                        g_isotp_send_buf, sizeof(g_isotp_send_buf),
+                        g_isotp_recv_buf, sizeof(g_isotp_recv_buf));
+        Serial.println("HSWRITE: pre-checking TCM OSID (no kernel upload yet)...");
+        bool pre_have_osid = read_osid_from_ecu();
+        if (pre_have_osid && g_osid[0]) {
+            uint32_t pre_tcm_os_pn = (uint32_t)strtoul(g_osid, NULL, 10);
+            if (pre_tcm_os_pn != 0 && src_os_pn != pre_tcm_os_pn) {
+                Serial.println();
+                Serial.println("====================================================================");
+                Serial.println("HSWRITE: CROSS-OS MISMATCH (pre-check) — ABORTING");
+                Serial.print("  Source bin OS PN (offset 0x014638): ");
+                Serial.println(src_os_pn);
+                Serial.print("  Current TCM OSID (via Mode 9):      ");
+                Serial.println(g_osid);
+                Serial.println();
+                Serial.println("  No kernel loaded, no flash touched — TCM untouched.");
+                Serial.println("  Flashy HSWRITE is for SAME-OS writes (cal edits).");
+                Serial.println("  For cross-OS swaps, use JTAG full-flash.");
+                Serial.println("====================================================================");
+                src.close();
+                return;
+            }
+            /* Pre-check passed — fall through to bring-up + write */
+        }
+    }
+
+    /* Bring up the T87A kernel if not already running (mirrors CALWRITE). */
+    if (!g_extkern_active) {
+        Serial.println("HSWRITE: bringing up T87A kernel...");
+        g_tester_id = 0x7E2;
+        g_ecu_id    = 0x7EA;
+        seedkey_set_algo(SEEDKEY_T87);
+        isotp_init_link(&g_isotp_link, g_tester_id,
+                        g_isotp_send_buf, sizeof(g_isotp_send_buf),
+                        g_isotp_recv_buf, sizeof(g_isotp_recv_buf));
+        g_module = MODULE_T87;
+
+        t87_broadcast_reset();
+
+        bool have_vin  = read_vin_from_ecu();
+        bool have_osid = read_osid_from_ecu();
+        if (have_osid) { Serial.print("OSID:"); Serial.println(g_osid); }
+        if (have_vin)  { Serial.print("VIN:");  Serial.println(g_vin);  }
+
+        t87_broadcast_disable_comms();
+
+        if (!do_security_access()) {
+            print_err("HSWRITE: security access denied");
+            src.close();
+            return;
+        }
+        if (!g_t87a_detected) {
+            print_err("HSWRITE: not a T87A — aborting");
+            src.close();
+            return;
+        }
+
+        t87_enter_programming_mode();
+        delay(100);
+
+        if (!hsread_upload_rollin_smoke()) {
+            print_err("HSWRITE: kernel upload failed");
+            src.close();
+            return;
+        }
+        g_extkern_active = true;
+        delay(200);
+    }
+
+    /* CROSS-OS SAFETY GATE — refuse to write if source OS PN doesn't match
+     * the currently-reported TCM OSID. Writing a different OS over the
+     * existing boot block causes a boot-OS mismatch brick (proven 2026-04-22).
+     * Same-OS writes pass this check and proceed; cross-OS swaps must use
+     * JTAG full-flash instead (which writes matching boot + OS together).
+     * Only checked when source is a full 4 MB image — cal-only bins skip. */
+    if (src_os_pn != 0 && g_osid[0]) {
+        uint32_t tcm_os_pn = (uint32_t)strtoul(g_osid, NULL, 10);
+        if (tcm_os_pn != 0 && src_os_pn != tcm_os_pn) {
+            Serial.println();
+            Serial.println("====================================================================");
+            Serial.println("HSWRITE: CROSS-OS MISMATCH — ABORTING");
+            Serial.print("  Source bin OS PN (offset 0x014638): ");
+            Serial.println(src_os_pn);
+            Serial.print("  Current TCM OSID (via Mode 9):      ");
+            Serial.println(g_osid);
+            Serial.println();
+            Serial.println("  Writing a DIFFERENT OS over this TCM preserves the old boot");
+            Serial.println("  block, which has OS-specific signature/CRC anchors — boot will");
+            Serial.println("  reject the new OS and the TCM will BRICK on reboot.");
+            Serial.println();
+            Serial.println("  Flashy HSWRITE is for SAME-OS writes (cal edits).");
+            Serial.println("  For cross-OS swaps, use JTAG full-flash.");
+            Serial.println("====================================================================");
+            src.close();
+            return;
+        }
+        if (tcm_os_pn != 0) {
+            Serial.print("HSWRITE: OS PN match confirmed (");
+            Serial.print(tcm_os_pn);
+            Serial.println(") — safe to proceed");
+        }
+    } else if (src_os_pn == 0) {
+        Serial.println("HSWRITE:WARN source OS PN unreadable — skipping cross-OS check");
     }
 
     Serial.println("HSWRITE:WARNING *** DO NOT POWER DOWN UNTIL COMPLETE ***");
@@ -3725,7 +4171,18 @@ static void cmd_t87a_hswrite(const char *arg)
     Serial.print(total_s);
     Serial.println("s");
 
+    /* Do NOT run KEXIT after write — post-write kernel state is unstable.
+     * Same rationale as CALWRITE. User must power-cycle to restore OS. */
+    g_auto_broadcast = false;
+    g_extkern_active = false;
+
     led_celebrate();
+    Serial.println();
+    Serial.println("==========================================================");
+    Serial.println("HSWRITE:DONE — POWER-CYCLE the TCM now to restore the OS.");
+    Serial.println("  Do NOT attempt Reset / KEXIT — post-write kernel state is");
+    Serial.println("  unstable and further commands can brick the TCM.");
+    Serial.println("==========================================================");
     print_ok();
 }
 
@@ -4011,17 +4468,28 @@ static void cmd_bamread(void)
         return;
     }
 
-    /* Step 2: Open SD file */
+    /* Step 2: Open SD file. TCM is in BAM boot mode here, so UDS $09 04
+     * can't be queried up-front for the OS PN — we write to a timestamped
+     * placeholder name and rename with the OS PN after the read completes
+     * (the 4 MB dump carries it at flash offset 0x014638). */
     const uint32_t BAM_FLASH_SIZE = 4UL * 1024 * 1024;  /* 4 MB */
     FsFile sd_file;
     bool use_sd = false;
-    char fname[48];
+    char fname[96];
+    char bamread_ts[20] = {0};
+    bool bamread_autoname = false;
 
     if (g_sd_filename[0]) {
         strncpy(fname, g_sd_filename, sizeof(fname) - 1);
         fname[sizeof(fname) - 1] = '\0';
     } else {
-        snprintf(fname, sizeof(fname), "BAM_T87A_read.bin");
+        if (g_sd_ok) {
+            (void)g_sd.mkdir("/Read");
+        }
+        format_timestamp(bamread_ts, sizeof(bamread_ts));
+        snprintf(fname, sizeof(fname),
+                 "/Read/T87A_BAMREAD_%s.bin", bamread_ts);
+        bamread_autoname = true;
     }
 
     if (g_sd_ok) {
@@ -4152,12 +4620,48 @@ static void cmd_bamread(void)
     } else {
         led_set(200, 0, 0);
     }
+
+    /* Rename placeholder to include OS PN. T87A stores it at flash offset
+     * 0x014638 as a 4-byte big-endian uint32 (same offset t87a_patch.py
+     * reads from .bin files). Only rename when we wrote the full 4 MB and
+     * the PN parses into the GM PN range (20000000..30000000). */
+    if (bamread_autoname && use_sd && total_read >= BAM_FLASH_SIZE && g_sd_ok) {
+        FsFile rf = g_sd.open(fname, O_RDONLY);
+        uint32_t os_pn = 0;
+        if (rf) {
+            rf.seekSet(0x014638);
+            uint8_t pn[4];
+            if (rf.read(pn, 4) == 4) {
+                os_pn = ((uint32_t)pn[0] << 24) | ((uint32_t)pn[1] << 16) |
+                        ((uint32_t)pn[2] << 8)  |  (uint32_t)pn[3];
+            }
+            rf.close();
+        }
+        if (os_pn >= 20000000UL && os_pn <= 30000000UL) {
+            char newname[96];
+            snprintf(newname, sizeof(newname),
+                     "/Read/T87A_%lu_BAMREAD_%s.bin",
+                     (unsigned long)os_pn, bamread_ts);
+            if (g_sd.rename(fname, newname)) {
+                Serial.print("BAMREAD: renamed to ");
+                Serial.println(newname);
+            } else {
+                Serial.print("BAMREAD: rename failed, kept ");
+                Serial.println(fname);
+            }
+        } else {
+            Serial.print("BAMREAD: OS PN unreadable at 0x014638, kept ");
+            Serial.println(fname);
+        }
+    }
+
     print_ok();
 }
 
 /* ---------- VIN / OSID state (cached for FULLREAD filename) ---------- */
-static char g_vin[20]  = {0};   /* 17-char VIN + null */
-static char g_osid[20] = {0};   /* up to 16-char cal ID + null */
+/* non-static so earlier forward decls can reference via extern */
+char g_vin[20]  = {0};   /* 17-char VIN + null */
+char g_osid[20] = {0};   /* up to 16-char cal ID + null */
 
 static bool read_vin_from_ecu(void)
 {
@@ -4198,10 +4702,33 @@ static bool read_vin_from_ecu(void)
 
 static bool read_osid_from_ecu(void)
 {
-    /* GM ReadDataByLocalIdentifier: 1A B4 (Calibration/OS ID) */
-    uint8_t req[2] = { 0x1A, 0xB4 };
+    /* OBD-II Mode 9 PID 04 (Calibration ID) — returns decimal 8-digit PN in
+     * ASCII (e.g. "24293216"), matching our .bin filename convention.
+     * Response: 49 04 <num_ids> <id0:16> [id1:16] ... — take only the first. */
+    uint8_t req[2] = { 0x09, 0x04 };
     uds_msg_t resp;
     int ret = uds_request(&g_isotp_link, req, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
+    if (ret == UDS_OK && resp.data_len >= 2) {
+        /* resp.sub_function=04, data[0]=num_ids, data[1..16]=first cal ID */
+        uint16_t off = 1;              /* skip num_ids byte */
+        uint16_t end = off + 16;       /* first cal ID is 16 bytes */
+        if (end > resp.data_len) end = resp.data_len;
+        uint16_t j = 0;
+        for (uint16_t i = off; i < end && j < sizeof(g_osid) - 1; i++) {
+            uint8_t c = resp.data[i];
+            if (c == 0x00) break;      /* null pad marks end of ASCII PN */
+            if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
+                (c >= 'a' && c <= 'z')) {
+                g_osid[j++] = (char)c;
+            }
+        }
+        g_osid[j] = '\0';
+        if (j > 0) return true;
+    }
+
+    /* Fallback: GM ReadDataByLocalIdentifier 1A B4 (alphanumeric cal ID) */
+    uint8_t req2[2] = { 0x1A, 0xB4 };
+    ret = uds_request(&g_isotp_link, req2, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
     if (ret != UDS_OK) return false;
 
     /* Response: sub_function=B4, data[0..]=cal ID (ASCII) */
@@ -4280,11 +4807,11 @@ static void cmd_vinwrite(const char *arg)
     }
 }
 
-/* ---------- HSREAD: T87A HS-CAN 4 MB read via Rollin Smoke kernel ----------
+/* ---------- HSREAD: T87A HS-CAN 4 MB read via FLASHY kernel ----------
  *
- * Uploads the Rollin Smoke T87A kernel (2300 B, load 0x40028000, extracted
- * from NT-Link Fast Mode capture), then streams flash back via the kernel's
- * $A0 command. Target: 4 MB in ~130-150 s, 3-4× faster than BAMREAD.
+ * Uploads the FLASHY T87A private kernel (1980 B, load 0x40010000, Flashy
+ * project's own clean-room authorship), then streams flash back via the
+ * kernel's $A0 command. Target: 4 MB in ~130-150 s, 3-4× faster than BAMREAD.
  *
  * Prerequisite: TCM must be dual-unlocked (cal with all 5 recipe patches +
  * valid CS1/CS2). If locked, SecurityAccess fails with NRC $33 or the kernel
@@ -4315,7 +4842,7 @@ static bool hsread_upload_rollin_smoke(void)
     const uint32_t ks  = T87A_EXTKERN_KERNEL_SIZE;
     const uint32_t la  = T87A_EXTKERN_LOAD_ADDR;
 
-    Serial.print("HSREAD: uploading Rollin Smoke T87A kernel (");
+    Serial.print("HSREAD: uploading FLASHY T87A kernel (");
     Serial.print(ks);
     Serial.print(" bytes @ 0x");
     Serial.print(la, HEX);
@@ -4384,7 +4911,7 @@ static void cmd_hsread(const char *arg)
     if (!g_sd_ok)           { print_err("HSREAD requires SD card"); return; }
 
 #if 0
-    print_err("HSREAD: Rollin Smoke T87A kernel not embedded in this build");
+    print_err("HSREAD: FLASHY T87A kernel not embedded in this build");
     return;
 #else
     Serial.println("HSREAD: T87A HS-CAN 4 MB read (Rollin Smoke kernel)");
@@ -4454,18 +4981,21 @@ static void cmd_hsread(const char *arg)
     }
     char ts[20];
     format_timestamp(ts, sizeof(ts));
-    if (have_vin && have_osid) {
-        snprintf(g_sd_filename, sizeof(g_sd_filename),
-                 "/Read/HSREAD_%s_%s_%s.bin", g_vin, g_osid, ts);
-    } else if (have_osid) {
-        snprintf(g_sd_filename, sizeof(g_sd_filename),
-                 "/Read/HSREAD_%s_%s.bin", g_osid, ts);
-    } else if (have_vin) {
-        snprintf(g_sd_filename, sizeof(g_sd_filename),
-                 "/Read/HSREAD_%s_%s.bin", g_vin, ts);
-    } else {
-        snprintf(g_sd_filename, sizeof(g_sd_filename),
-                 "/Read/HSREAD_T87A_%s.bin", ts);
+    {
+        const char *mod = module_name_for_filename();
+        if (have_vin && have_osid) {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_%s_%s_HSREAD_%s.bin", mod, g_vin, g_osid, ts);
+        } else if (have_osid) {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_%s_HSREAD_%s.bin", mod, g_osid, ts);
+        } else if (have_vin) {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_%s_HSREAD_%s.bin", mod, g_vin, ts);
+        } else {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_HSREAD_%s.bin", mod, ts);
+        }
     }
     Serial.print("HSREAD: streaming 4 MB to SD file ");
     Serial.println(g_sd_filename);
@@ -4482,14 +5012,358 @@ static void cmd_hsread(const char *arg)
      *    - No $11 01 ECU reset: the USBJTAG kernel at 0x40010000 has taken
      *      over the TCM's CAN handling and doesn't route UDS services to
      *      the OS. A clean reset requires power-cycle (same as NT-Link). */
+    /* Stop the 0x0101 TesterPresent flood so the kernel sees a silent tester.
+     * Important: do NOT call t87_return_to_normal() yet when AUTOKEXIT is on
+     * — earlier bench test showed the $20 + $14 broadcast pair is what
+     * pushes the kernel into its silent-zombie state. Let KEXIT try the
+     * exit while the kernel may still be responsive. */
     g_auto_broadcast = false;
-    t87_return_to_normal();
     g_extkern_active = false;
 
     Serial.println("HSREAD:DONE");
-    Serial.println("HSREAD: kernel still resident on TCM — power-cycle the TCM to clear");
+    bool kernel_exited = false;
+    if (g_auto_kexit) {
+        kernel_exited = kexit_run_trailer_and_observe();
+    }
+    if (!kernel_exited) {
+        /* Fallback: original returnToNormal sequence. */
+        t87_return_to_normal();
+        if (g_auto_kexit) {
+            Serial.println("HSREAD: kernel still resident — power-cycle the TCM to clear");
+        } else {
+            Serial.println("HSREAD: kernel still resident on TCM — power-cycle the TCM to clear");
+            Serial.println("HSREAD: (try AUTOKEXIT on to attempt inline kernel exit)");
+        }
+    }
     print_ok();
 #endif
+}
+
+/* ---------- T87A kernel-exit trailer ----------
+ *
+ * Mined from HPT + NT-Link HS-CAN write captures. After the bulk transfer,
+ * the proprietary tools send a series of failing / stop-session frames;
+ * the kernel's state machine recognizes "transfer complete" and hands
+ * control back to stock TCM OS. Captures show the 0x101 broadcast flips
+ * from FE 01 3E (kernel mode) to FE 01 20 (normal), and stock runtime
+ * frames (0x189, 0x197, 0x1A6, 0x1AF, 0x1F5, 0x3F5) reappear.
+ *
+ * Candidate sequence — try each, because the captures are RX-only and
+ * we can't see the exact tester command behind each response:
+ *   $34 00 00 08 FC   — RequestDownload (expected NRC 7F 34 78)
+ *   $36 FF 00 00 00 00 — TransferData   (expected NRC 7F 36 78)
+ *   $37               — TransferExit
+ *   $A5 03            — GM stopProgrammingMode
+ *   $31 01 FF 00      — RoutineControl CheckProgrammingDependencies
+ *   $11 01            — ECUReset hardReset
+ *
+ * Runs inline — caller must still have g_isotp_link set up to 0x7E2/0x7EA.
+ * Returns true if bus observation shows kernel-mode exited. */
+/* (g_auto_kexit is declared near the top of this file as a forward decl) */
+
+/* Send one UDS request as part of the exit trailer; log NRC / timeout. */
+static void kexit_send(const char *label, const uint8_t *req, uint16_t len)
+{
+    uds_msg_t resp;
+    Serial.print("  TX "); Serial.println(label);
+    int ret = uds_request(&g_isotp_link, req, len, &resp, 400);
+    if (ret == UDS_ERR_NEGATIVE) {
+        Serial.print("    NRC 7F "); Serial.print(req[0], HEX);
+        Serial.print(" "); if (resp.nrc < 0x10) Serial.print('0');
+        Serial.println(resp.nrc, HEX);
+    } else if (ret == UDS_OK) {
+        Serial.println("    positive response (unexpected — kernel may be exiting)");
+    } else {
+        Serial.print("    timeout/err ret="); Serial.println(ret);
+    }
+}
+
+/* Listen N ms, report whether we saw 0x101 FE 01 20 or stock OS runtime.
+ * Returns true if the OS appears to be back on the bus. */
+static bool kexit_observe(uint32_t duration_ms, const char *label)
+{
+    can_set_filter(0, 0);
+    { uint32_t _id; uint8_t _d[8]; uint8_t _l;
+      while (can_receive(&_id, _d, &_l) == 0) {} }
+
+    const uint32_t STOCK_OS_IDS[] = {
+        0x0C1, 0x0C7, 0x0F1, 0x0F9, 0x189, 0x197, 0x19D, 0x1A6,
+        0x1AF, 0x1F5, 0x1F8, 0x3F5, 0x4C9
+    };
+    const int NUM_STOCK_IDS = sizeof(STOCK_OS_IDS) / sizeof(STOCK_OS_IDS[0]);
+
+    bool saw_bcast_3E = false, saw_bcast_20 = false, saw_stock = false;
+    uint32_t first_stock = 0, frame_count = 0;
+
+    uint32_t start = millis();
+    while ((millis() - start) < duration_ms) {
+        uint32_t id; uint8_t data[8]; uint8_t len;
+        if (can_receive(&id, data, &len) != 0) continue;
+        frame_count++;
+        if (id == 0x101 && len >= 3 && data[0] == 0xFE && data[1] == 0x01) {
+            if (data[2] == 0x3E) saw_bcast_3E = true;
+            if (data[2] == 0x20) saw_bcast_20 = true;
+        }
+        if (!saw_stock) {
+            for (int i = 0; i < NUM_STOCK_IDS; i++) {
+                if (id == STOCK_OS_IDS[i]) {
+                    saw_stock = true; first_stock = id; break;
+                }
+            }
+        }
+    }
+
+    Serial.print("KEXIT["); Serial.print(label); Serial.print("] frames=");
+    Serial.print(frame_count);
+    Serial.print(" 3E="); Serial.print(saw_bcast_3E ? "Y" : ".");
+    Serial.print(" 20="); Serial.print(saw_bcast_20 ? "Y" : ".");
+    Serial.print(" stock="); Serial.print(saw_stock ? "Y" : ".");
+    if (saw_stock) { Serial.print(" id=0x"); Serial.print(first_stock, HEX); }
+    Serial.println();
+    return saw_bcast_20 || saw_stock;
+}
+
+/* Liveness probe: send a minimal raw $A0 (read 8 bytes from 0x0), wait up
+ * to 300 ms for any frame on 0x7EA. Bench TCMs don't always emit OS runtime
+ * frames (IGN not strapped), so kernel-alive check is our best exit signal. */
+static bool kexit_kernel_alive(void)
+{
+    can_set_filter(0, 0);
+    { uint32_t _id; uint8_t _d[8]; uint8_t _l;
+      while (can_receive(&_id, _d, &_l) == 0) {} }
+
+    /* Raw $A0: [opcode][addr:4][size:3] — 8 bytes from 0x00000000 */
+    uint8_t tx[8] = { 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08 };
+    can_send(0x7E2, tx, 8);
+
+    uint32_t start = millis();
+    while ((millis() - start) < 300) {
+        uint32_t id; uint8_t data[8]; uint8_t len;
+        if (can_receive(&id, data, &len) != 0) continue;
+        if (id == 0x7EA) return true;   /* kernel responded on its channel */
+    }
+    return false;
+}
+
+/* Send a raw 8-byte CAN frame (no ISO-TP framing) to 0x7E2, log it. */
+static void kexit_send_raw8(const char *label, const uint8_t *frame)
+{
+    Serial.print("  RAW TX "); Serial.print(label); Serial.print(" = ");
+    for (int i = 0; i < 8; i++) {
+        if (frame[i] < 0x10) Serial.print('0');
+        Serial.print(frame[i], HEX);
+        Serial.print(' ');
+    }
+    Serial.println();
+    can_send(0x7E2, (uint8_t *)frame, 8);
+}
+
+/* Multi-strategy kernel exit attempt. Returns true if kernel has gone
+ * (liveness probe fails). */
+static bool kexit_run_trailer_and_observe(void)
+{
+    g_auto_broadcast = false;
+    g_extkern_active = false;
+    can_set_filter(0, 0);
+
+    Serial.println("KEXIT: checking kernel liveness via raw $A0...");
+    bool kernel_was_alive = kexit_kernel_alive();
+    if (kernel_was_alive) {
+        Serial.println("KEXIT: kernel confirmed alive (responded to $A0)");
+    } else {
+        Serial.println("KEXIT: kernel did not respond to $A0 — may be stuck/crashed");
+        Serial.println("KEXIT: proceeding with kill stream anyway (it's safe)");
+    }
+
+    /* --- Strategy 1: silent wait (3 s). Success == stock OS heartbeat seen.
+     * (We cannot use "kernel non-responsive" as success — that's the stuck
+     * state, not an exit. True exit signal is the OS returning to the bus.) */
+    Serial.println("KEXIT: strategy 1 — silent wait (3 s)...");
+    if (kexit_observe(3000, "silent")) {
+        Serial.println("KEXIT: *** OS HEARTBEAT during silent wait — kernel exited on its own ***");
+        led_celebrate();
+        return true;
+    }
+
+    /* --- Strategy 2: THE KILL COMMAND ------------------------------------
+     * Proven in T87A-CAL-HSREAD-Exit-Test.csv capture: sending a single
+     * $A0 with a 16 MB size (4x flash) causes the kernel to stream 0xFF
+     * past flash bounds for ~150 s, ends with PowerPC `blr` (4E 80 00 20),
+     * and the MCU resets. TCM cold-boots the OS; 0x0C7 heartbeat resumes
+     * ~27 s after the stream stops. Total: ~3 minutes.
+     *
+     * We wait patiently, watching for the first 0x0C7 stock OS frame
+     * (unambiguous "OS is alive" signal). Progress ticks every ~10 s so
+     * the user knows Flashy isn't frozen. */
+    Serial.println("KEXIT: strategy 2 — 16 MB kill stream + OS-heartbeat wait");
+    Serial.println("KEXIT: this takes ~3 minutes. Don't interrupt.");
+    {
+        uint8_t f[8] = { 0xA0, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF };
+        kexit_send_raw8("$A0 16MB kill", f);
+    }
+
+    /* Wait up to 4 minutes for stock OS (0x0C7) to resume. */
+    const uint32_t WAIT_MS      = 240000UL;  /* 4 min ceiling */
+    const uint32_t TICK_MS      = 10000UL;   /* progress every 10 s */
+    uint32_t start         = millis();
+    uint32_t last_tick     = start;
+    uint32_t stream_frames = 0;
+    uint32_t last_7EA_ms   = 0;
+    bool     got_os        = false;
+
+    while ((millis() - start) < WAIT_MS) {
+        uint32_t id; uint8_t data[8]; uint8_t len;
+        if (can_receive(&id, data, &len) == 0) {
+            if (id == 0x7EA) { stream_frames++; last_7EA_ms = millis(); }
+            if (id == 0x0C7) { got_os = true; break; }
+        }
+        if ((millis() - last_tick) >= TICK_MS) {
+            uint32_t elapsed_s = (millis() - start) / 1000UL;
+            uint32_t quiet_s   = last_7EA_ms ? (millis() - last_7EA_ms) / 1000UL : 0;
+            Serial.print("KEXIT: waiting for OS... t+");
+            Serial.print(elapsed_s);
+            Serial.print("s, stream_frames=");
+            Serial.print(stream_frames);
+            Serial.print(", stream_quiet=");
+            Serial.print(quiet_s);
+            Serial.println("s");
+            last_tick = millis();
+        }
+    }
+
+    if (got_os) {
+        uint32_t total_s = (millis() - start) / 1000UL;
+        Serial.print("KEXIT: *** STOCK OS HEARTBEAT DETECTED after ");
+        Serial.print(total_s);
+        Serial.println("s — TCM is back ***");
+        led_celebrate();
+        return true;
+    }
+
+    Serial.print("KEXIT: timed out waiting for OS (");
+    Serial.print(WAIT_MS / 1000UL);
+    Serial.print("s, stream_frames=");
+    Serial.print(stream_frames);
+    Serial.println(")");
+    Serial.println("KEXIT: kernel may still be resident — try power-cycle");
+    return false;
+}
+
+/* OPSCAN: brute-force try every 1-byte opcode 0x00..0xFF on 0x7E2 (raw 8B)
+ * and report which ones get ANY response on 0x7EA. Kernel accepts $A0 and
+ * maybe $1A/B/C/D — we already tried most. This finds unknown opcodes.
+ * Safe: kernel either ignores unknown opcodes silently, or responds.
+ * Call after HSREAD when kernel is running. */
+static void cmd_opscan(void)
+{
+    if (!g_can_initialized) { print_err("not initialized"); return; }
+    if (g_module != MODULE_T87) {
+        print_err("OPSCAN: T87A-only (run after HSREAD while kernel is alive)");
+        return;
+    }
+
+    Serial.println("OPSCAN: probing all 256 opcodes on 0x7E2 (raw 8B)");
+    Serial.println("OPSCAN: reports only opcodes that produce a 0x7EA response");
+
+    g_auto_broadcast = false;
+    g_extkern_active = false;
+    can_set_filter(0, 0);
+
+    /* Skip opcodes we already know trigger massive streams */
+    const uint8_t SKIP_OPCODES[] = { 0xA0 };
+    const int NUM_SKIP = sizeof(SKIP_OPCODES) / sizeof(SKIP_OPCODES[0]);
+
+    int responders = 0;
+    for (int op = 0x00; op <= 0xFF; op++) {
+        bool skip = false;
+        for (int i = 0; i < NUM_SKIP; i++) if (op == SKIP_OPCODES[i]) skip = true;
+        if (skip) continue;
+
+        /* Drain any stale frames */
+        { uint32_t _id; uint8_t _d[8]; uint8_t _l;
+          while (can_receive(&_id, _d, &_l) == 0) {} }
+
+        uint8_t tx[8] = { (uint8_t)op, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        can_send(0x7E2, tx, 8);
+
+        /* Watch for response on 0x7EA within 80 ms */
+        uint32_t start = millis();
+        bool got = false;
+        uint8_t resp[8] = {0};
+        uint8_t resp_len = 0;
+        while ((millis() - start) < 80) {
+            uint32_t id; uint8_t data[8]; uint8_t len;
+            if (can_receive(&id, data, &len) != 0) continue;
+            if (id == 0x7EA) {
+                memcpy(resp, data, len);
+                resp_len = len;
+                got = true;
+                break;
+            }
+        }
+
+        if (got) {
+            responders++;
+            Serial.print("OPSCAN: $");
+            if (op < 0x10) Serial.print('0');
+            Serial.print(op, HEX);
+            Serial.print(" -> 0x7EA [");
+            Serial.print(resp_len);
+            Serial.print("] ");
+            for (int i = 0; i < resp_len; i++) {
+                if (resp[i] < 0x10) Serial.print('0');
+                Serial.print(resp[i], HEX);
+                Serial.print(' ');
+            }
+            Serial.println();
+
+            /* If kernel went silent after this opcode, liveness will fail */
+            if (!kexit_kernel_alive()) {
+                Serial.print("OPSCAN: *** kernel DIED after $");
+                if (op < 0x10) Serial.print('0');
+                Serial.print(op, HEX);
+                Serial.println(" — candidate exit! ***");
+                led_celebrate();
+                return;
+            }
+        }
+    }
+
+    Serial.print("OPSCAN: done, ");
+    Serial.print(responders);
+    Serial.println(" opcodes responded");
+    print_ok();
+}
+
+static void cmd_kexit(void)
+{
+    if (!g_can_initialized) { print_err("not initialized"); return; }
+    if (g_module != MODULE_T87) {
+        print_err("KEXIT: T87A-only (set ALGO T87 first)");
+        return;
+    }
+    (void)kexit_run_trailer_and_observe();
+    print_ok();
+}
+
+static void cmd_autokexit(const char *arg)
+{
+    if (!arg || !*arg) {
+        Serial.print("AUTOKEXIT: "); Serial.println(g_auto_kexit ? "on" : "off");
+        print_ok();
+        return;
+    }
+    if (strcasecmp(arg, "on") == 0 || strcmp(arg, "1") == 0) {
+        g_auto_kexit = true;
+        Serial.println("AUTOKEXIT: on — HSREAD/CALREAD will run exit trailer inline");
+    } else if (strcasecmp(arg, "off") == 0 || strcmp(arg, "0") == 0) {
+        g_auto_kexit = false;
+        Serial.println("AUTOKEXIT: off");
+    } else {
+        print_err("usage: AUTOKEXIT [on|off]");
+        return;
+    }
+    print_ok();
 }
 
 static void cmd_fullread(void)
@@ -4973,33 +5847,72 @@ static void cmd_calread(void)
         if (have_osid) { Serial.print("OSID:"); Serial.println(g_osid); }
         else           { Serial.println("OSID: (not available)"); }
 
-        Serial.print("FILE:");
-        Serial.print(have_vin ? g_vin : "UNKNOWN");
-        Serial.print("_");
-        Serial.print(have_osid ? g_osid : "NOOSID");
-        Serial.println("_CAL.bin");
+        /* Step 3: Build output filename — /Read/<MODULE>_<OSID>_CALREAD_<ts>.bin
+         * Module tag ("T87A"/"T87"/"T93") groups bins by ECU in the file list. */
+        if (g_sd_ok) {
+            (void)g_sd.mkdir("/Read");
+        }
+        char ts[20];
+        format_timestamp(ts, sizeof(ts));
+        {
+            const char *mod = module_name_for_filename();
+            if (have_vin && have_osid) {
+                snprintf(g_sd_filename, sizeof(g_sd_filename),
+                         "/Read/%s_%s_%s_CALREAD_%s.bin", mod, g_vin, g_osid, ts);
+            } else if (have_osid) {
+                snprintf(g_sd_filename, sizeof(g_sd_filename),
+                         "/Read/%s_%s_CALREAD_%s.bin", mod, g_osid, ts);
+            } else if (have_vin) {
+                snprintf(g_sd_filename, sizeof(g_sd_filename),
+                         "/Read/%s_%s_CALREAD_%s.bin", mod, g_vin, ts);
+            } else {
+                snprintf(g_sd_filename, sizeof(g_sd_filename),
+                         "/Read/%s_CALREAD_%s.bin", mod, ts);
+            }
+        }
+        Serial.print("CALREAD: target ");
+        Serial.println(g_sd_filename);
 
-        /* Step 3: $28 disableNormalComm (before SecurityAccess) */
+        /* Step 4: $28 disableNormalComm (before SecurityAccess) */
         t87_broadcast_disable_comms();
 
-        /* Step 4: SecurityAccess */
+        /* Step 5: SecurityAccess */
         Serial.println("CALREAD: SecurityAccess...");
         led_auth();
-        if (!do_security_access()) { led_error(); return; }
-
-        /* Step 5: $A5 01/$A5 03 enter programming mode (after SecurityAccess) */
-        t87_enter_programming_mode();
-
-        /* Step 4: Upload read kernel */
-        Serial.println("CALREAD: uploading read kernel...");
-        cmd_kernel(NULL);  /* default T87 read kernel */
-        if (!g_auto_broadcast) {
+        if (!do_security_access()) {
             led_error();
-            print_err("kernel upload failed");
+            g_sd_filename[0] = '\0';
             return;
         }
 
-        /* Step 5: Read cal region (0x080000, 512 blocks) */
+        /* Step 6: $A5 01/$A5 03 enter programming mode (after SecurityAccess) */
+        t87_enter_programming_mode();
+
+        /* Step 7: Upload read kernel.
+         * T87A needs the Rollin Smoke EXTKERN kernel (same one HSREAD uses),
+         * because cmd_extkern_read speaks its $A0/heartbeat protocol.
+         * cmd_kernel(NULL) on T87A picks the 60-byte clean-room stub which
+         * doesn't implement extkern — causing "no kernel heartbeat" timeout. */
+        if (g_t87a_detected) {
+            if (!hsread_upload_rollin_smoke()) {
+                led_error();
+                g_sd_filename[0] = '\0';
+                g_extkern_active = false;
+                print_err("CALREAD: kernel upload failed");
+                return;
+            }
+        } else {
+            Serial.println("CALREAD: uploading read kernel...");
+            cmd_kernel(NULL);  /* default T87 flash-tool read kernel */
+            if (!g_auto_broadcast) {
+                led_error();
+                g_sd_filename[0] = '\0';
+                print_err("kernel upload failed");
+                return;
+            }
+        }
+
+        /* Step 8: Read cal region (0x080000, 512 blocks) */
         uint32_t cal_blocks = T87_CAL_SIZE / WRITE_BLOCK_SIZE;  /* 512 */
         char read_arg[32];
         snprintf(read_arg, sizeof(read_arg), "%lX %lu",
@@ -5013,10 +5926,24 @@ static void cmd_calread(void)
             cmd_read(read_arg);
         }
 
-        /* Step 6: Return to normal */
-        t87_return_to_normal();
+        /* Step 9: Return to normal / kernel exit.
+         * For T87A with AUTOKEXIT on, try KEXIT FIRST — the $20 + $14 pair
+         * that t87_return_to_normal() sends appears to push the kernel into
+         * a silent-zombie state where nothing responds. */
         g_auto_broadcast = false;
         if (g_t87a_detected) g_extkern_active = false;
+        g_sd_filename[0] = '\0';
+
+        bool kernel_exited = false;
+        if (g_t87a_detected && g_auto_kexit) {
+            kernel_exited = kexit_run_trailer_and_observe();
+        }
+        if (!kernel_exited) {
+            t87_return_to_normal();
+            if (g_t87a_detected && g_auto_kexit) {
+                Serial.println("CALREAD: kernel still resident — power-cycle the TCM to clear");
+            }
+        }
         return;
     }
 
@@ -5051,16 +5978,39 @@ static void cmd_calread(void)
     if (have_osid) { Serial.print("OSID:"); Serial.println(g_osid); }
     else           { Serial.println("OSID: (not available)"); }
 
-    Serial.print("FILE:");
-    Serial.print(have_vin ? g_vin : "UNKNOWN");
-    Serial.print("_");
-    Serial.print(have_osid ? g_osid : "NOOSID");
-    Serial.println("_CAL.bin");
+    /* Build output filename — /Read/CALREAD_<vin>_<osid>_<ts>.bin */
+    if (g_sd_ok) {
+        (void)g_sd.mkdir("/Read");
+    }
+    {
+        char ts[20];
+        format_timestamp(ts, sizeof(ts));
+        const char *mod = module_name_for_filename();
+        if (have_vin && have_osid) {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_%s_%s_CALREAD_%s.bin", mod, g_vin, g_osid, ts);
+        } else if (have_osid) {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_%s_CALREAD_%s.bin", mod, g_osid, ts);
+        } else if (have_vin) {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_%s_CALREAD_%s.bin", mod, g_vin, ts);
+        } else {
+            snprintf(g_sd_filename, sizeof(g_sd_filename),
+                     "/Read/%s_CALREAD_%s.bin", mod, ts);
+        }
+    }
+    Serial.print("CALREAD: target ");
+    Serial.println(g_sd_filename);
 
     /* Step 3: SecurityAccess (default session) */
     Serial.println("CALREAD: SecurityAccess...");
     led_auth();
-    if (!do_security_access()) { led_error(); return; }
+    if (!do_security_access()) {
+        led_error();
+        g_sd_filename[0] = '\0';
+        return;
+    }
 
     /* Step 4: Enter programming mode */
     e38_enter_programming_mode();
@@ -5070,6 +6020,7 @@ static void cmd_calread(void)
     cmd_kernel(NULL);
     if (!g_auto_broadcast) {
         led_error();
+        g_sd_filename[0] = '\0';
         print_err("kernel upload failed");
         return;
     }
@@ -5084,6 +6035,7 @@ static void cmd_calread(void)
     /* Step 7: Return to normal */
     e38_return_to_normal();
     g_auto_broadcast = false;
+    g_sd_filename[0] = '\0';
 }
 
 static void cmd_erase(const char *arg)
@@ -5580,6 +6532,11 @@ static void cmd_calwrite(void)
 
     /* T87/T93 flash tool cal write — completely separate protocol */
     if (is_t87_family()) {
+        /* T87A has its own EXTKERN-native path. Route there. */
+        if (g_t87a_detected) {
+            cmd_t87a_calwrite(NULL);
+            return;
+        }
         Serial.println("CALWRITE: T87 flash tool cal write");
 
         /* Step 1: $20 reset any prior session */
@@ -7027,8 +7984,12 @@ static uint16_t module_caps(gm_module_t m) {
 /* Special: T87A is T87 + g_t87a_detected — override caps */
 static uint16_t menu_active_caps(void) {
     if (g_menu_module == MODULE_T87 && g_t87a_detected) {
+        /* CAL Read works via cmd_calread's T87A branch (cmd_extkern_read on
+         * the Rollin Smoke kernel). CAL Write is intentionally omitted —
+         * cmd_calwrite uses the flash-tool protocol which the EXTKERN kernel
+         * doesn't speak, and HSWRITE is the correct path for T87A writes. */
         return CAP_BAMREAD | CAP_BAMWRITE | CAP_HSREAD | CAP_HSWRITE |
-               CAP_KERNEL | CAP_READ;
+               CAP_CALREAD | CAP_KERNEL | CAP_READ;
     }
     if (g_menu_module == MODULE_T93) {
         return CAP_BAMREAD | CAP_BAMWRITE | CAP_KERNEL | CAP_READ;
@@ -7074,6 +8035,23 @@ static const char* module_bin_folder(gm_module_t m) {
         case MODULE_E92:  return "/bins/E92/";
         case MODULE_E40:  return "/bins/E40/";
         default:          return "/bins/";
+    }
+}
+
+/* Short uppercase module tag used as the prefix on bin filenames.
+ * Examples: "T87A", "E38", "E92". Used so /Read/ output files sort
+ * by module in the file explorer. */
+static const char* module_name_for_filename(void) {
+    switch (g_module) {
+        case MODULE_E38:  return "E38";
+        case MODULE_E67:  return "E67";
+        case MODULE_E38N: return "E38N";
+        case MODULE_T87:  return g_t87a_detected ? "T87A" : "T87";
+        case MODULE_T93:  return "T93";
+        case MODULE_T42:  return "T42";
+        case MODULE_E92:  return "E92";
+        case MODULE_E40:  return "E40";
+        default:          return "ECU";
     }
 }
 
@@ -7170,6 +8148,24 @@ static void menu_show_ecu_ops(void) {
     Serial.println("  ----------------------------");
 
     uint16_t caps = menu_active_caps();
+
+    /* T87A custom layout — group by speed path (High Speed vs Bench Tool)
+     * and use the naming the user prefers. Fixed numbering 1..9.
+     * Dispatch in menu_handle_ecu_ops_choice mirrors this exact order. */
+    if (g_menu_module == MODULE_T87 && g_t87a_detected) {
+        Serial.println("  1) Cal Read   [High Speed]");
+        Serial.println("  2) Full Read  [High Speed]");
+        Serial.println("  3) CAL Write  [High Speed]");
+        Serial.println("  4) Full Write [High Speed]");
+        Serial.println("  5) BAM Read   [Bench Tool]");
+        Serial.println("  6) BAM Write  [Bench Tool]");
+        Serial.println("  7) VIN");
+        Serial.println("  8) VIN Write");
+        Serial.println("  9) Reset");
+        Serial.println("  B) Back");
+        return;
+    }
+
     int n = 1;
     /* Read options */
     if (caps & CAP_FULLREAD)     { Serial.print("  "); Serial.print(n++); Serial.println(") Full Read"); }
@@ -7430,6 +8426,106 @@ static bool menu_handle_input(const char *input) {
     /* ---- ECU OPERATIONS ---- */
     case MENU_ECU_OPS: {
         uint16_t caps = menu_active_caps();
+
+        /* T87A fixed-layout dispatch — must match menu_show_ecu_ops render. */
+        if (g_menu_module == MODULE_T87 && g_t87a_detected) {
+            switch (choice) {
+                case 1: cmd_calread();                    menu_show_ecu_ops(); return true;
+                case 2: cmd_hsread(NULL);                 menu_show_ecu_ops(); return true;
+                case 3: {
+                    /* CAL Write — prompt for source file path (accepts
+                     * 1 MB cal-only or 4 MB full-flash). Suggest the
+                     * last CALREAD file on SD as a sensible default. */
+                    Serial.println("  CAL Write — enter source file path on SD:");
+                    Serial.println("  Example: /Read/CALREAD_24288836_<ts>.bin");
+                    Serial.print("  Path: ");
+                    char path_buf[128];
+                    int ppos = 0;
+                    uint32_t t0 = millis();
+                    while (millis() - t0 < 60000) {
+                        if (Serial.available()) {
+                            char c = (char)Serial.read();
+                            if (c == '\n' || c == '\r') { if (ppos > 0) break; }
+                            else if (ppos < (int)sizeof(path_buf) - 1) path_buf[ppos++] = c;
+                        }
+                    }
+                    path_buf[ppos] = '\0';
+                    /* Don't re-echo path_buf — the terminal's local echo
+                     * already shows what the user typed, and the subsequent
+                     * "CALWRITE: source <path>" line confirms the parsed
+                     * path cleanly. Echoing here was causing duplicate
+                     * display on some terminals. */
+                    Serial.println();
+                    if (ppos > 0) {
+                        cmd_t87a_calwrite(path_buf);
+                    } else {
+                        Serial.println("  Cancelled.");
+                    }
+                    menu_show_ecu_ops();
+                    return true;
+                }
+                case 4: {
+                    /* Full HS Write — prompt for source file path on SD.
+                     * Accepts any 4 MB full-flash .bin (or larger; truncated
+                     * to first 4 MB via file_size check). */
+                    Serial.println("  Full Write — enter source file path on SD:");
+                    Serial.println("  Example: /Write/T87A_OS-24288836_Unlock_Patched.bin");
+                    Serial.print("  Path: ");
+                    char path_buf[128];
+                    int ppos = 0;
+                    uint32_t t0 = millis();
+                    while (millis() - t0 < 60000) {
+                        if (Serial.available()) {
+                            char c = (char)Serial.read();
+                            if (c == '\n' || c == '\r') { if (ppos > 0) break; }
+                            else if (ppos < (int)sizeof(path_buf) - 1) path_buf[ppos++] = c;
+                        }
+                    }
+                    path_buf[ppos] = '\0';
+                    Serial.println();
+                    if (ppos > 0) {
+                        cmd_t87a_hswrite(path_buf);
+                    } else {
+                        Serial.println("  Cancelled.");
+                    }
+                    menu_show_ecu_ops();
+                    return true;
+                }
+                case 5: cmd_bamread();                    menu_show_ecu_ops(); return true;
+                case 6: cmd_bamwrite();                   menu_show_ecu_ops(); return true;
+                case 7: cmd_vin();                        menu_show_ecu_ops(); return true;
+                case 8: {
+                    /* VIN Write — inline prompt (same logic as generic path) */
+                    Serial.print("  Enter 17-char VIN: ");
+                    char vin_buf[24];
+                    int vpos = 0;
+                    uint32_t t0 = millis();
+                    while (millis() - t0 < 30000) {
+                        if (Serial.available()) {
+                            char c = (char)Serial.read();
+                            if (c == '\n' || c == '\r') { if (vpos > 0) break; }
+                            else if (vpos < (int)sizeof(vin_buf) - 1) vin_buf[vpos++] = c;
+                        }
+                    }
+                    vin_buf[vpos] = '\0';
+                    if (vpos == 17) { Serial.println(vin_buf); cmd_vinwrite(vin_buf); }
+                    else if (vpos == 0) { Serial.println("\n  Cancelled."); }
+                    else { Serial.println(vin_buf); Serial.println("  ERR: VIN must be exactly 17 characters."); }
+                    menu_show_ecu_ops();
+                    return true;
+                }
+                case 9:
+                    Serial.println("Reset: T87A — using kernel-exit kill stream (~2-3 min)");
+                    (void)kexit_run_trailer_and_observe();
+                    menu_show_ecu_ops();
+                    return true;
+                default:
+                    Serial.println("  Invalid choice.");
+                    menu_show_ecu_ops();
+                    return true;
+            }
+        }
+
         int n = 1;
 
         /* Read options */
@@ -7476,8 +8572,20 @@ static bool menu_handle_input(const char *input) {
         }
         n++;
 
-        /* Always-available: Reset */
-        if (choice == n) { cmd_reset("1"); menu_show_ecu_ops(); return true; }
+        /* Always-available: Reset. Smart branching for T87A — if the
+         * Rollin Smoke kernel is resident, UDS $11 01 won't reach the OS
+         * (kernel doesn't speak UDS). Use the proven 16 MB kill-stream
+         * path instead, which MCU-resets the TCM and cold-boots the OS. */
+        if (choice == n) {
+            if (g_menu_module == MODULE_T87 && g_t87a_detected) {
+                Serial.println("Reset: T87A — using kernel-exit kill stream (~2-3 min)");
+                (void)kexit_run_trailer_and_observe();
+            } else {
+                cmd_reset("1");
+            }
+            menu_show_ecu_ops();
+            return true;
+        }
 
         Serial.println("  Invalid choice.");
         menu_show_ecu_ops();
@@ -7685,41 +8793,181 @@ static void cmd_help(void)
     Serial.println("BAMWRITE            - T87A: BAM boot-mode write+verify");
     Serial.println("HSREAD              - T87A: HS-CAN full read via Rollin Smoke kernel (4MB, ~2.5 min, needs dual-unlock)");
     Serial.println("HSWRITE [file]      - T87A: HS-CAN write via external kernel");
+    Serial.println("KEXIT               - T87A: experimental kernel-exit trailer (manual, run after HSREAD/CALREAD)");
+    Serial.println("AUTOKEXIT [on|off]  - When on, HSREAD/CALREAD run the exit trailer inline before DONE");
     Serial.println("RESET [type]        - ECU Reset (1=hard 2=keyoff 3=soft)");
     Serial.println("RAW <hex>           - Send raw UDS request");
     Serial.println("CAPTURE [dur_ms]    - Log CAN frames as SavvyCAN CSV (default 30000ms)");
     Serial.println("KERNEL              - Upload Flashy clean-room E92 kernel + PING test");
     Serial.println("STATUS              - Show connection state");
     Serial.println("MENU                - Interactive module menu");
+    Serial.println("--- SD browser ---");
+    Serial.println("SDLIST [path]       - List files+dirs in path (default /)");
+    Serial.println("SDTREE [path]       - Recursive listing (max depth 3)");
+    Serial.println("SDSTAT              - Card capacity + free space");
+    Serial.println("SDPEEK <f> [off] [n]- Hex+ASCII dump (xxd-style, max 256 B)");
+    Serial.println("SDDELETE <path>     - Remove file");
+    Serial.println("SDWRITE <path> <sz> - Stage file from PC over serial");
     Serial.println("HELP                - This message");
 }
 
 /* ---------- SD card commands ---------- */
 
-static void cmd_sdlist(void)
+/* List one directory. Shows subdirectories too (marked as <DIR>) so the user
+ * can see /Read/ and /Write/ from the root and navigate in. */
+static void sdlist_dir(const char *path)
 {
-    if (!g_sd_ok) { print_err("no SD card"); return; }
-    FsFile dir = g_sd.open("/");
-    if (!dir) { print_err("SD open root failed"); return; }
+    FsFile dir = g_sd.open(path);
+    if (!dir) { print_err("SD open path failed"); return; }
+    if (!dir.isDir()) {
+        dir.close();
+        print_err("path is not a directory");
+        return;
+    }
 
-    Serial.println("SDLIST:START");
-    int count = 0;
+    Serial.print("SDLIST:START path=");
+    Serial.println(path);
+
+    int files = 0;
+    int dirs  = 0;
     FsFile entry;
     while (entry.openNext(&dir, O_RDONLY)) {
-        if (!entry.isDir()) {
-            char name[64];
-            entry.getName(name, sizeof(name));
+        char name[64];
+        entry.getName(name, sizeof(name));
+        if (entry.isDir()) {
+            Serial.print("SDDIR:");
+            Serial.println(name);
+            dirs++;
+        } else {
             Serial.print("SDFILE:");
             Serial.print(name);
             Serial.print(":");
             Serial.println(entry.size());
-            count++;
+            files++;
         }
         entry.close();
     }
     dir.close();
-    Serial.print("SDLIST:END count=");
-    Serial.println(count);
+
+    Serial.print("SDLIST:END files=");
+    Serial.print(files);
+    Serial.print(" dirs=");
+    Serial.println(dirs);
+    print_ok();
+}
+
+static void cmd_sdlist(const char *arg)
+{
+    if (!g_sd_ok) { print_err("no SD card"); return; }
+    const char *path = "/";
+    char buf[128];
+    if (arg && *arg) {
+        strncpy(buf, arg, sizeof(buf) - 1);
+        buf[sizeof(buf) - 1] = '\0';
+        /* trim trailing whitespace */
+        size_t n = strlen(buf);
+        while (n > 0 && (buf[n-1] == ' ' || buf[n-1] == '\r' || buf[n-1] == '\n')) {
+            buf[--n] = '\0';
+        }
+        if (n > 0) path = buf;
+    }
+    sdlist_dir(path);
+}
+
+/* Recursive tree listing, bounded to 3 levels deep so a huge tree doesn't
+ * flood the serial buffer. Prints "SDTREE:<depth>:<type>:<path>:<size>". */
+static void sdtree_walk(const char *path, int depth)
+{
+    if (depth > 3) return;
+    FsFile dir = g_sd.open(path);
+    if (!dir || !dir.isDir()) { if (dir) dir.close(); return; }
+
+    FsFile entry;
+    while (entry.openNext(&dir, O_RDONLY)) {
+        char name[64];
+        entry.getName(name, sizeof(name));
+
+        /* build child path ("/<parent>/<name>") */
+        char child[200];
+        if (strcmp(path, "/") == 0) {
+            snprintf(child, sizeof(child), "/%s", name);
+        } else {
+            snprintf(child, sizeof(child), "%s/%s", path, name);
+        }
+
+        if (entry.isDir()) {
+            Serial.print("SDTREE:");
+            Serial.print(depth);
+            Serial.print(":D:");
+            Serial.println(child);
+            entry.close();
+            sdtree_walk(child, depth + 1);
+        } else {
+            Serial.print("SDTREE:");
+            Serial.print(depth);
+            Serial.print(":F:");
+            Serial.print(child);
+            Serial.print(":");
+            Serial.println(entry.size());
+            entry.close();
+        }
+    }
+    dir.close();
+}
+
+static void cmd_sdtree(const char *arg)
+{
+    if (!g_sd_ok) { print_err("no SD card"); return; }
+    const char *path = "/";
+    char buf[128];
+    if (arg && *arg) {
+        strncpy(buf, arg, sizeof(buf) - 1);
+        buf[sizeof(buf) - 1] = '\0';
+        size_t n = strlen(buf);
+        while (n > 0 && (buf[n-1] == ' ' || buf[n-1] == '\r' || buf[n-1] == '\n')) {
+            buf[--n] = '\0';
+        }
+        if (n > 0) path = buf;
+    }
+    Serial.print("SDTREE:START path=");
+    Serial.println(path);
+    sdtree_walk(path, 0);
+    Serial.println("SDTREE:END");
+    print_ok();
+}
+
+/* Card capacity + free space + top-level entry count. */
+static void cmd_sdstat(void)
+{
+    if (!g_sd_ok) { print_err("no SD card"); return; }
+
+    /* SdFat clusterCount/freeClusterCount + bytesPerCluster give us totals */
+    uint32_t sectors_per_cluster = g_sd.sectorsPerCluster();
+    uint32_t cluster_count       = g_sd.clusterCount();
+    uint32_t free_clusters       = g_sd.freeClusterCount();
+    /* bytes per sector is always 512 on FAT cards */
+    uint64_t bytes_per_cluster   = (uint64_t)sectors_per_cluster * 512ULL;
+    uint64_t total_bytes         = bytes_per_cluster * (uint64_t)cluster_count;
+    uint64_t free_bytes          = bytes_per_cluster * (uint64_t)free_clusters;
+    uint64_t used_bytes          = (total_bytes > free_bytes) ? (total_bytes - free_bytes) : 0;
+
+    Serial.print("SDSTAT:TOTAL_MB "); Serial.println((unsigned long)(total_bytes / (1024ULL * 1024ULL)));
+    Serial.print("SDSTAT:USED_MB  "); Serial.println((unsigned long)(used_bytes  / (1024ULL * 1024ULL)));
+    Serial.print("SDSTAT:FREE_MB  "); Serial.println((unsigned long)(free_bytes  / (1024ULL * 1024ULL)));
+
+    /* Count files+dirs in root as quick sanity metric */
+    int files = 0, dirs = 0;
+    FsFile dir = g_sd.open("/");
+    if (dir) {
+        FsFile entry;
+        while (entry.openNext(&dir, O_RDONLY)) {
+            if (entry.isDir()) dirs++; else files++;
+            entry.close();
+        }
+        dir.close();
+    }
+    Serial.print("SDSTAT:ROOT_FILES "); Serial.println(files);
+    Serial.print("SDSTAT:ROOT_DIRS  "); Serial.println(dirs);
     print_ok();
 }
 
@@ -7758,12 +9006,39 @@ static void cmd_sdpeek(const char *arg)
 
     if (got <= 0) { print_err("read failed"); return; }
 
-    for (int i = 0; i < got; i++) {
-        if (data[i] < 0x10) Serial.print('0');
-        Serial.print(data[i], HEX);
-        if ((i & 0x1F) == 0x1F) Serial.println();
+    /* xxd-style: "OFFSET: HEX*16  |ASCII|" per 16-byte row */
+    for (int row = 0; row < got; row += 16) {
+        int row_len = (got - row) < 16 ? (got - row) : 16;
+        /* offset column (absolute file offset) */
+        uint32_t row_off = offset + (uint32_t)row;
+        if (row_off < 0x10) Serial.print("0000000");
+        else if (row_off < 0x100) Serial.print("000000");
+        else if (row_off < 0x1000) Serial.print("00000");
+        else if (row_off < 0x10000) Serial.print("0000");
+        else if (row_off < 0x100000) Serial.print("000");
+        else if (row_off < 0x1000000) Serial.print("00");
+        else if (row_off < 0x10000000) Serial.print("0");
+        Serial.print(row_off, HEX);
+        Serial.print(": ");
+        /* hex bytes */
+        for (int i = 0; i < 16; i++) {
+            if (i < row_len) {
+                uint8_t b = data[row + i];
+                if (b < 0x10) Serial.print('0');
+                Serial.print(b, HEX);
+            } else {
+                Serial.print("  ");
+            }
+            Serial.print(' ');
+        }
+        /* ASCII column */
+        Serial.print('|');
+        for (int i = 0; i < row_len; i++) {
+            uint8_t b = data[row + i];
+            Serial.print((char)((b >= 0x20 && b <= 0x7E) ? b : '.'));
+        }
+        Serial.println('|');
     }
-    if (got & 0x1F) Serial.println();
     print_ok();
 }
 
@@ -7941,12 +9216,24 @@ static void process_command(char *line)
     else if (strcmp(cmd, "CALREAD")  == 0) cmd_calread();
     else if (strcmp(cmd, "ERASE")    == 0) cmd_erase(arg);
     else if (strcmp(cmd, "WRITE")    == 0) cmd_write(arg);
-    else if (strcmp(cmd, "CALWRITE") == 0) cmd_calwrite();
+    else if (strcmp(cmd, "CALWRITE") == 0) {
+        /* If user passed a file path, they're targeting the T87A EXTKERN
+         * cal-write path (the only CALWRITE variant that accepts a path).
+         * Route directly — cmd_t87a_calwrite handles auth + kernel bring-up
+         * internally, so module-pre-select isn't required. */
+        if (arg && *arg) {
+            cmd_t87a_calwrite(arg);
+        } else {
+            cmd_calwrite();
+        }
+    }
     else if (strcmp(cmd, "FULLWRITE")== 0) cmd_fullwrite();
     else if (strcmp(cmd, "TESTWRITE")== 0) cmd_testwrite();
     else if (strcmp(cmd, "BAMREAD")  == 0) cmd_bamread();
     else if (strcmp(cmd, "HSREAD")   == 0) cmd_hsread(arg);
     else if (strcmp(cmd, "HSWRITE")  == 0) cmd_t87a_hswrite(arg);
+    else if (strcmp(cmd, "KEXIT")    == 0) cmd_kexit();
+    else if (strcmp(cmd, "AUTOKEXIT")== 0) cmd_autokexit(arg);
     else if (strcmp(cmd, "BAMWRITE") == 0) {
         if (arg) { strncpy(g_sd_filename, arg, sizeof(g_sd_filename)-1); g_sd_filename[sizeof(g_sd_filename)-1]='\0'; }
         cmd_bamwrite();
@@ -7962,7 +9249,9 @@ static void process_command(char *line)
     else if (strcmp(cmd, "SETCLOCK")   == 0) cmd_setclock(arg);
     else if (strcmp(cmd, "CLOCK")      == 0) cmd_setclock("");
     else if (strcmp(cmd, "STATUS")   == 0) cmd_status();
-    else if (strcmp(cmd, "SDLIST")   == 0) cmd_sdlist();
+    else if (strcmp(cmd, "SDLIST")   == 0) cmd_sdlist(arg);
+    else if (strcmp(cmd, "SDTREE")   == 0) cmd_sdtree(arg);
+    else if (strcmp(cmd, "SDSTAT")   == 0) cmd_sdstat();
     else if (strcmp(cmd, "SDPEEK")   == 0) cmd_sdpeek(arg);
     else if (strcmp(cmd, "SDDELETE") == 0) cmd_sddelete(arg);
     else if (strcmp(cmd, "SDWRITE")  == 0) cmd_sdwrite(arg);
@@ -8081,8 +9370,13 @@ void setup()
         }
     }
 
-    Serial.println("Type MENU for the interactive picker, or HELP for the full command list.");
-    Serial.print("> ");
+    /* Auto-launch into the interactive menu. Users who want raw command
+     * entry can select option 6 (RAW) from the main menu, which drops
+     * back to the `>` prompt. Typing MENU from there re-enters.
+     *
+     * Main menu already has HELP as option 1 and RAW as option 6 —
+     * those are the two escape hatches. See menu_show_main(). */
+    cmd_menu();
 }
 
 void loop()

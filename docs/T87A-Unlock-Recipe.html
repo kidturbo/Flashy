@@ -160,6 +160,46 @@ USBJTAG patch:
 <tr><td>24293216</td><td>10L80/10L90</td><td>Patched, untested</td></tr>
 </table>
 
+<h2>Patched Examples &mdash; Ready-to-Flash Library</h2>
+<p>Rebuilt 2026-04-22 from vendor baselines using <code>tools/t87a_patch.py</code>. One file per OS version, full 4&nbsp;MB flash, all 5 patches applied, Boot&nbsp;Block CS1/CS2 recalculated and verified. Prior BAM-only sidecars were retired &mdash; BAM write now handles the 0x020000 offset in firmware, so a single full-flash image covers BAM, HS-CAN, and JTAG flows.</p>
+<p>Location: <code>C:\Users\Owner\Documents\GMLAN\T87A\Bins\NTLink-HPT-Patches\Patched\</code></p>
+<table>
+<tr><th>OS PN</th><th>Cal ID</th><th>Transmission</th><th>Patched File</th><th>CS1 / CS2</th><th>File CRC32<br><small>(full 4&nbsp;MB)</small></th><th>Bench Status</th></tr>
+<tr><td>24281243</td><td>24279974</td><td>TBD</td><td><code>T87A_OS-24281243_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x177A4354</code></td><td>Patched, untested</td></tr>
+<tr><td>24283721</td><td>24284015</td><td>8L45 (CT6)</td><td><code>T87A_OS-24283721_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x03C54CF1</code></td><td>Patched, untested</td></tr>
+<tr><td>24285377</td><td>24289138</td><td>TBD</td><td><code>T87A_OS-24285377_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xB4CF9AEA</code></td><td>Patched, untested</td></tr>
+<tr><td>24286913</td><td>24287045</td><td>TBD</td><td><code>T87A_OS-24286913_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x0882A817</code></td><td>Patched, untested</td></tr>
+<tr><td>24286985</td><td>24288833</td><td>TBD</td><td><code>T87A_OS-24286985_Unlock_Patched.bin</code></td><td>0x7EFA / 0x84AE</td><td><code>0x68F56712</code></td><td>Patched, untested</td></tr>
+<tr><td>24288259</td><td>24292839</td><td>10L</td><td><code>T87A_OS-24288259_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xFE6D5CF7</code></td><td>Patched, untested</td></tr>
+<tr><td>24288574</td><td>24288577</td><td>TBD</td><td><code>T87A_OS-24288574_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x00022D14</code></td><td>Patched, untested</td></tr>
+<tr><td>24288835</td><td>24288866</td><td>8L90</td><td><code>T87A_OS-24288835_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x34F44018</code></td><td>Patched, untested</td></tr>
+<tr style="background: #0a2a1a;"><td>24288836</td><td>24289638</td><td>10L80/10L90</td><td><code>T87A_OS-24288836_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x6550B8B6</code></td><td><strong>VERIFIED on bench</strong> &mdash; BAM write + HS-CAN read + HPT "All Unlocked" (2026-04-21)</td></tr>
+<tr><td>24291283</td><td>24289552</td><td>8L90 (CTSV)</td><td><code>T87A_OS-24291283_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xB6500DD8</code></td><td>Patched, untested</td></tr>
+<tr><td>24293216</td><td>24295245</td><td>10L80/10L90</td><td><code>T87A_OS-24293216_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x826D64D4</code></td><td>Checksum-matched to U-Link golden; not bench-tested</td></tr>
+</table>
+
+<div class="info">
+<strong>Why no more BAM-only files:</strong> Earlier we generated matching <code>*-BAM.bin</code> sidecars that pre-trimmed the first 128&nbsp;KB for BAM's 0x020000 start. That was a workaround for a firmware bug &mdash; current Flashy BAMWRITE reads the full 4&nbsp;MB image and skips the 0x000000-0x01FFFF range itself. Feed any of the files above to BAMWRITE, HSWRITE, or JTAG &mdash; same image, same checksums.
+</div>
+
+<h3>OS Block PN Decode</h3>
+<p>All five per-file fields read from each patched bin as 4-byte big-endian integers. The <code>0x014638</code> block holds four related GM part numbers that vary per OS; <code>0x080010</code> is a calibration-region marker (ASCII prefix <code>"2288"</code>) that stays near-constant across files.</p>
+<table style="font-size: 13px;">
+<tr><th>File (OS PN)</th><th>0x014638<br><small>OS PN</small></th><th>0x01463C<br><small>Cal ID</small></th><th>0x014640<br><small>SW Mod 1</small></th><th>0x014644<br><small>SW Mod 2</small></th><th>0x080010<br><small>Cal marker</small></th></tr>
+<tr><td>24281243</td><td>24281243</td><td>24279974</td><td>24275695</td><td>24275700</td><td>842281529</td></tr>
+<tr><td>24283721</td><td>24283721</td><td>24284015</td><td>24284019</td><td>24284020</td><td>842281528</td></tr>
+<tr><td>24285377</td><td>24285377</td><td>24289138</td><td>24281661</td><td>24281662</td><td>842281528</td></tr>
+<tr><td>24286913</td><td>24286913</td><td>24287045</td><td>24285039</td><td>24285040</td><td>842281528</td></tr>
+<tr><td>24286985</td><td>24286985</td><td>24288833</td><td>24281378</td><td>24281379</td><td>842281528</td></tr>
+<tr><td>24288259</td><td>24288259</td><td>24292839</td><td>24288197</td><td>24288198</td><td>842281529</td></tr>
+<tr><td>24288574</td><td>24288574</td><td>24288577</td><td>24288579</td><td>24288581</td><td>842281528</td></tr>
+<tr><td>24288835</td><td>24288835</td><td>24288866</td><td>24288868</td><td>24288869</td><td>842281528</td></tr>
+<tr style="background: #0a2a1a;"><td>24288836</td><td>24288836</td><td>24289638</td><td>24289640</td><td>24289641</td><td>842281528</td></tr>
+<tr><td>24291283</td><td>24291283</td><td>24289552</td><td>24289553</td><td>24289554</td><td>842281528</td></tr>
+<tr><td>24293216</td><td>24293216</td><td>24295245</td><td>24290804</td><td>24290805</td><td>842281529</td></tr>
+</table>
+<p style="font-size: 12px; color: #888;">Generated 2026-04-22 by <code>tools/t87a_patch.py --verify</code> (Cal ID + CRC32 reported inline).</p>
+
 <h2>Application Methods</h2>
 
 <h3>Method 1: JTAG (Full Flash)</h3>
@@ -191,6 +231,34 @@ USBJTAG patch:
 <li>HS-CAN write automatically protects 0x020000-0x03FFFF (boot block)</li>
 <li>BAM write starts at 0x020000 &mdash; cannot access boot sector</li>
 <li>Always have JTAG/BAM recovery available before testing writes</li>
+</ul>
+</div>
+
+<h2>Cross-OS Write Compatibility &mdash; which paths are safe?</h2>
+<p>
+Not every write path supports swapping to a <em>different</em> OS version. Boot block has OS-specific
+anchors (signature hashes, OS PN, region CRCs) &mdash; if you write a new OS without also matching the
+boot block, the TCM refuses to boot. This was verified on the bench 2026-04-22.
+</p>
+<table>
+<tr><th>Method</th><th>Same-OS (cal edits, reflash)</th><th>Cross-OS (different OS PN)</th><th>Why</th></tr>
+<tr><td><strong>BAM Write</strong> (bench)</td><td>Safe</td><td><strong>Safe</strong> &mdash; load any T87A bin</td><td>Rewrites through factory BAM protocol; no boot/OS anchor mismatch possible</td></tr>
+<tr><td><strong>JTAG Full Flash</strong> (USBJTAG/NT-Link BDM)</td><td>Safe</td><td><strong>Safe</strong></td><td>Writes full 4 MB including matching boot + OS together</td></tr>
+<tr><td><strong>HS Full Write</strong> (Flashy <code>HSWRITE</code>)</td><td>Safe (verified)</td><td><strong>Bricks</strong> &mdash; blocked by firmware</td><td>Preserves existing boot; new OS at 0x040000+ fails anchor validation on reboot</td></tr>
+<tr><td><strong>HS Cal Write</strong> (Flashy <code>CALWRITE</code>)</td><td>Safe (verified)</td><td>N/A</td><td>Doesn't touch OS region; purely 0x080000-0x17FFFF cal</td></tr>
+</table>
+<div class="info">
+<strong>Firmware safety gate (Flashy v1.4.2+):</strong> <code>cmd_t87a_hswrite</code> reads the source
+bin's OS PN at offset 0x014638 and compares against the live TCM OSID (Mode 9 PID 4) <strong>before</strong>
+any kernel load or flash touch. Mismatch &rarr; aborts with a banner, no erase, no write, TCM unchanged.
+Same-OS writes proceed normally.
+</div>
+<div class="info">
+<strong>Practical workflow:</strong>
+<ul>
+<li>Swap to a different OS &mdash; use <strong>BAM Write</strong> (bench tool) or <strong>JTAG</strong>.</li>
+<li>Cal-edit the current OS &mdash; use <strong>HS Cal Write</strong> or <strong>HS Full Write</strong> (same-OS).</li>
+<li>Reflash the same OS for tune / cal updates &mdash; <strong>HS Full Write</strong> same-OS is the fast path (&sim;2 min).</li>
 </ul>
 </div>
 
@@ -252,7 +320,7 @@ python tools/t87a_patch.py --batch directory/
 </ul>
 
 <p style="color: #666; margin-top: 40px; font-size: 12px;">
-J2534 Pass-Thru Project &mdash; Feather M4 CAN (SAME51) &mdash; Updated 2026-04-21 &mdash; VERIFIED: 3-tool validation (NT-Link BAM write + NT-Link HS-CAN read + HPT Unlock Check) on MCU ID 5640 Version 2.0, cal 24288836
+J2534 Pass-Thru Project &mdash; Feather M4 CAN (SAME51) &mdash; Updated 2026-04-22 &mdash; VERIFIED: 3-tool validation (NT-Link BAM write + NT-Link HS-CAN read + HPT Unlock Check) on MCU ID 5640 Version 2.0, cal 24288836. 11-OS Patched Examples library rebuilt 2026-04-22.
 </p>
 
 </body>

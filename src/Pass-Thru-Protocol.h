@@ -6,7 +6,7 @@
 
 /* ---------- Version ---------- */
 #ifndef PASSTHRU_VERSION
-#define PASSTHRU_VERSION "1.4.0"
+#define PASSTHRU_VERSION "1.4.2"
 #endif
 
 /* ---------- CAN defaults ---------- */
