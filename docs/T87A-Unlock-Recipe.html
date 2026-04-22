@@ -144,20 +144,21 @@ USBJTAG patch:
 <p>HP Tuners checks three branch instructions in the OS code to determine if the module is "unlocked". Stock code uses conditional branches (<code>bne</code>) that enforce lock checks. HPT patches convert these to unconditional branches (<code>b</code>) or NOPs, bypassing the lock validation.</p>
 
 <h2>Verified OS Versions</h2>
-<p>These patch offsets are confirmed identical across all tested T87A OS versions with the standard boot block layout:</p>
+<p>Status at a glance &mdash; patches confirmed applied; bench verification varies by OS.</p>
 <table>
 <tr><th>OS PN</th><th>Transmission</th><th>Status</th></tr>
-<tr><td>24288836</td><td>10L80/10L90</td><td>VERIFIED (2026-03-21, re-verified 2026-04-21 on MCU ID 5640 Version 2.0) &mdash; dual unlock + HS-CAN read + HPT "All Unlocked" + checksums valid &mdash; 3-tool validation</td></tr>
-<tr><td>24272182</td><td>Mixed</td><td>Patched, untested</td></tr>
-<tr><td>24281243</td><td>TBD</td><td>Patched, untested</td></tr>
-<tr><td>24283721</td><td>8L45 (CT6)</td><td>Patched, untested</td></tr>
-<tr><td>24285377</td><td>TBD</td><td>Patched, untested</td></tr>
-<tr><td>24286913</td><td>TBD</td><td>Patched, untested</td></tr>
-<tr><td>24288259</td><td>10L</td><td>Patched, untested</td></tr>
-<tr><td>24288574</td><td>TBD</td><td>Patched, untested</td></tr>
-<tr><td>24288835</td><td>8L90</td><td>Patched, untested</td></tr>
-<tr><td>24291283</td><td>8L90 (CTSV)</td><td>Patched, untested</td></tr>
-<tr><td>24293216</td><td>10L80/10L90</td><td>Patched, untested</td></tr>
+<tr style="background: #0a2a1a;"><td>24288836</td><td>10L80/10L90</td><td><strong>Verified</strong></td></tr>
+<tr style="background: #0a2a1a;"><td>24293216</td><td>10L80/10L90</td><td><strong>Verified (BAM)</strong></td></tr>
+<tr><td>24272182</td><td>Mixed</td><td>Untested</td></tr>
+<tr><td>24281243</td><td>TBD</td><td>Untested</td></tr>
+<tr><td>24283721</td><td>8L45 (CT6)</td><td>Untested</td></tr>
+<tr><td>24285377</td><td>TBD</td><td>Untested</td></tr>
+<tr><td>24286913</td><td>TBD</td><td>Untested</td></tr>
+<tr><td>24286985</td><td>TBD</td><td>Untested</td></tr>
+<tr><td>24288259</td><td>10L</td><td>Untested</td></tr>
+<tr><td>24288574</td><td>TBD</td><td>Untested</td></tr>
+<tr><td>24288835</td><td>8L90</td><td>Untested</td></tr>
+<tr><td>24291283</td><td>8L90 (CTSV)</td><td>Untested</td></tr>
 </table>
 
 <h2>Patched Examples &mdash; Ready-to-Flash Library</h2>
@@ -165,17 +166,17 @@ USBJTAG patch:
 <p>Location: <code>C:\Users\Owner\Documents\GMLAN\T87A\Bins\NTLink-HPT-Patches\Patched\</code></p>
 <table>
 <tr><th>OS PN</th><th>Cal ID</th><th>Transmission</th><th>Patched File</th><th>CS1 / CS2</th><th>File CRC32<br><small>(full 4&nbsp;MB)</small></th><th>Bench Status</th></tr>
-<tr><td>24281243</td><td>24279974</td><td>TBD</td><td><code>T87A_OS-24281243_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x177A4354</code></td><td>Patched, untested</td></tr>
-<tr><td>24283721</td><td>24284015</td><td>8L45 (CT6)</td><td><code>T87A_OS-24283721_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x03C54CF1</code></td><td>Patched, untested</td></tr>
-<tr><td>24285377</td><td>24289138</td><td>TBD</td><td><code>T87A_OS-24285377_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xB4CF9AEA</code></td><td>Patched, untested</td></tr>
-<tr><td>24286913</td><td>24287045</td><td>TBD</td><td><code>T87A_OS-24286913_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x0882A817</code></td><td>Patched, untested</td></tr>
-<tr><td>24286985</td><td>24288833</td><td>TBD</td><td><code>T87A_OS-24286985_Unlock_Patched.bin</code></td><td>0x7EFA / 0x84AE</td><td><code>0x68F56712</code></td><td>Patched, untested</td></tr>
-<tr><td>24288259</td><td>24292839</td><td>10L</td><td><code>T87A_OS-24288259_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xFE6D5CF7</code></td><td>Patched, untested</td></tr>
-<tr><td>24288574</td><td>24288577</td><td>TBD</td><td><code>T87A_OS-24288574_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x00022D14</code></td><td>Patched, untested</td></tr>
-<tr><td>24288835</td><td>24288866</td><td>8L90</td><td><code>T87A_OS-24288835_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x34F44018</code></td><td>Patched, untested</td></tr>
-<tr style="background: #0a2a1a;"><td>24288836</td><td>24289638</td><td>10L80/10L90</td><td><code>T87A_OS-24288836_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x6550B8B6</code></td><td><strong>VERIFIED on bench</strong> &mdash; BAM write + HS-CAN read + HPT "All Unlocked" (2026-04-21)</td></tr>
-<tr><td>24291283</td><td>24289552</td><td>8L90 (CTSV)</td><td><code>T87A_OS-24291283_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xB6500DD8</code></td><td>Patched, untested</td></tr>
-<tr style="background: #0a2a1a;"><td>24293216</td><td>24295245</td><td>10L80/10L90</td><td><code>T87A_OS-24293216_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x826D64D4</code></td><td><strong>VERIFIED (BAM mode)</strong> &mdash; routinely used in BAM write flow; HS-CAN auth path currently blocked by an extra gate (see <a href="#cross-os">Cross-OS matrix</a>)</td></tr>
+<tr><td>24281243</td><td>24279974</td><td>TBD</td><td><code>T87A_OS-24281243_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x177A4354</code></td><td>Untested</td></tr>
+<tr><td>24283721</td><td>24284015</td><td>8L45 (CT6)</td><td><code>T87A_OS-24283721_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x03C54CF1</code></td><td>Untested</td></tr>
+<tr><td>24285377</td><td>24289138</td><td>TBD</td><td><code>T87A_OS-24285377_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xB4CF9AEA</code></td><td>Untested</td></tr>
+<tr><td>24286913</td><td>24287045</td><td>TBD</td><td><code>T87A_OS-24286913_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x0882A817</code></td><td>Untested</td></tr>
+<tr><td>24286985</td><td>24288833</td><td>TBD</td><td><code>T87A_OS-24286985_Unlock_Patched.bin</code></td><td>0x7EFA / 0x84AE</td><td><code>0x68F56712</code></td><td>Untested</td></tr>
+<tr><td>24288259</td><td>24292839</td><td>10L</td><td><code>T87A_OS-24288259_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xFE6D5CF7</code></td><td>Untested</td></tr>
+<tr><td>24288574</td><td>24288577</td><td>TBD</td><td><code>T87A_OS-24288574_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x00022D14</code></td><td>Untested</td></tr>
+<tr><td>24288835</td><td>24288866</td><td>8L90</td><td><code>T87A_OS-24288835_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x34F44018</code></td><td>Untested</td></tr>
+<tr style="background: #0a2a1a;"><td>24288836</td><td>24289638</td><td>10L80/10L90</td><td><code>T87A_OS-24288836_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x6550B8B6</code></td><td><strong>Verified</strong></td></tr>
+<tr><td>24291283</td><td>24289552</td><td>8L90 (CTSV)</td><td><code>T87A_OS-24291283_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0xB6500DD8</code></td><td>Untested</td></tr>
+<tr style="background: #0a2a1a;"><td>24293216</td><td>24295245</td><td>10L80/10L90</td><td><code>T87A_OS-24293216_Unlock_Patched.bin</code></td><td>0x5685 / 0x1898</td><td><code>0x826D64D4</code></td><td><strong>Verified (BAM)</strong></td></tr>
 </table>
 
 <div class="info">
