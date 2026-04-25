@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools Reference &mdash; Flashy (J2534 Pass-Thru, Feather M4 CAN)</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --heading: #58a6ff;
+            --accent: #39d353;
+            --warn: #d29922;
+            --code-bg: #1c2129;
+            --link: #58a6ff;
+            --muted: #8b949e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 {
+            color: var(--heading);
+            font-size: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .lede {
+            color: var(--muted);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+        h2 {
+            color: var(--accent);
+            font-size: 1.3rem;
+            margin: 2rem 0 0.75rem;
+            border-left: 4px solid var(--accent);
+            padding-left: 0.75rem;
+        }
+        h2 .count {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-weight: 400;
+            margin-left: 0.5rem;
+        }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.88em;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0;
+            margin: 0.75rem 0;
+            overflow: hidden;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.6rem 0.9rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+        th {
+            background: rgba(88,166,255,0.08);
+            color: var(--heading);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        tr:last-child td { border-bottom: none; }
+        td.tool {
+            white-space: nowrap;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.88rem;
+            color: var(--accent);
+            width: 1%;
+        }
+        td.tool a { color: var(--accent); }
+        .note {
+            background: rgba(210,153,34,0.08);
+            border-left: 4px solid var(--warn);
+            padding: 0.75rem 1rem;
+            border-radius: 0 6px 6px 0;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<h1>Tools Reference</h1>
+<p class="lede">
+    The <code>tools/</code> directory ships a collection of host-side Python scripts that pair with the Flashy firmware:
+    drivers for routine bench work, capture parsers for reverse-engineering, kernel-extraction utilities,
+    and crypto helpers. Most are command-line and assume Python 3.9+ with <code>pyserial</code> and
+    <code>pycryptodome</code> installed. A point-and-click desktop wrapper around the most-used
+    workflows is on the roadmap &mdash; until then, drop into a terminal.
+</p>
+
+<div class="note">
+    <strong>Source links</strong> below open the file on GitHub. Many scripts have richer help text in their
+    <code>--help</code> output or module docstring than the one-line summary here.
+</div>
+
+<!-- ============================================================ -->
+<h2>Bench drivers <span class="count">7 tools</span></h2>
+<p>Host-side serial drivers for routine work with a flashed Feather M4 CAN: capture, VIN, SD upload, diagnostics.</p>
+<div class="card">
+<table>
+    <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+    <tbody>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/capture_bus.py">capture_bus.py</a></td>
+            <td>Captures CAN frames straight off the Feather to a SavvyCAN-format CSV &mdash; the input format the kernel-extraction tools expect.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/capture_read.py">capture_read.py</a></td>
+            <td>Drives a full ECU flash read through the Feather and saves the result to a binary file on the host.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/capture_write.py">capture_write.py</a></td>
+            <td>Writes firmware to an ECU through the Feather with block-by-block verification.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/flashy_diag.py">flashy_diag.py</a></td>
+            <td>Scripted serial driver: send a sequence of Feather commands and capture each response with wallclock timestamps. Handy for bench recovery probes and protocol experiments.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/sd_upload.py">sd_upload.py</a></td>
+            <td>Uploads a file from the host to the Feather&rsquo;s SD card over serial at ~5 KB/s. Used to stage write payloads without pulling the card.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/vin_scan.py">vin_scan.py</a></td>
+            <td>Scans the CAN bus for all modules, prints each VIN, and offers an interactive update for any module.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/vin_update.py">vin_update.py</a></td>
+            <td>Updates the VIN on a GM ECU via the Feather in programming mode (auth + <code>$2E F190</code> / <code>$3B 90</code>).</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/vinwrite_debug.py">vinwrite_debug.py</a></td>
+            <td>Runs <code>VINWRITE</code> through escalating session/auth stages so the log shows exactly which gate the ECU requires; stops at the first stage that succeeds.</td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2>Reverse-engineering &amp; extraction <span class="count">5 tools</span></h2>
+<p>Pull kernel binaries and protocol structure out of CAN-bus captures.</p>
+<div class="card">
+<table>
+    <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+    <tbody>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/extract_kernel.py">extract_kernel.py</a></td>
+            <td>Pulls the T87 write kernel out of a SavvyCAN CSV by reassembling the ISO-TP <code>$36</code> TransferData frames after <code>$34</code> RequestDownload.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/extract_kernel_from_csv.py">extract_kernel_from_csv.py</a></td>
+            <td>General-purpose kernel extractor for any ISO-TP multi-frame upload captured to SavvyCAN CSV. Prints embedded copyright/version strings if it finds them.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/extract_usbjtag_kernel.py">extract_usbjtag_kernel.py</a></td>
+            <td>Variant of the kernel extractor tuned for E38 captures.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/parse_write_protocol.py">parse_write_protocol.py</a></td>
+            <td>Reads a SavvyCAN write capture and breaks it into protocol phases: diagnostics, security, kernel upload, erase, write, finalize.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/socketcan_sniff.py">socketcan_sniff.py</a></td>
+            <td>Connects to a remote <code>socketcand</code> daemon and writes frames to a SavvyCAN-compatible CSV. Useful when the bus is on a different machine.</td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2>T87A specific <span class="count">8 tools</span></h2>
+<p>Drivers and patchers targeted at the T87A 8L90 TCM (SPC564A80).</p>
+<div class="card">
+<table>
+    <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+    <tbody>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/t87_calwrite.py">t87_calwrite.py</a></td>
+            <td>Writes the T87 TCM calibration region only, with readback verification. Smaller blast radius than a full write.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/t87_fullwrite.py">t87_fullwrite.py</a></td>
+            <td>Full T87 TCM flash write (OS + calibration) through the Feather, with verify.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/t87a_patch.py">t87a_patch.py</a></td>
+            <td>Applies the 5-patch unlock recipe to a T87A image and recalculates Boot Block CRC16 + Wordsum checksums. See the <a href="T87A-Unlock-Recipe.html">T87A Unlock Recipe</a> for the patch map.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/test_calread.py">test_calread.py</a></td>
+            <td>Bench validation: partial reads of T87 NVM/adaptation and calibration regions to confirm CALREAD is healthy.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/test_read.py">test_read.py</a></td>
+            <td>Full-read driver with double-read + checksum compare across two consecutive reads (no power cycle in between).</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/test_t87_fullread_quick.py">test_t87_fullread_quick.py</a></td>
+            <td>Quick FULLREAD smoke test &mdash; fires the command and watches for kernel-upload completion.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/test_t87_write_kernel.py">test_t87_write_kernel.py</a></td>
+            <td>Safe kernel-upload test: uploads kernel and checks it responds; does NOT erase or write flash.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/test_write.py">test_write.py</a></td>
+            <td>Single-sector erase + write + verify on E38; useful as a minimal-risk write smoke test.</td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2>E92 / E92A <span class="count">5 tools</span></h2>
+<p>Bench helpers for the E92 ECM family. <code>E92A</code> refers to the late-model (2017+) variant that uses GM 5-byte algo 146.</p>
+<div class="card">
+<table>
+    <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+    <tbody>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/e92a_fullread_drive.py">e92a_fullread_drive.py</a></td>
+            <td>Drives <code>E92FULLREAD</code> on a late-model E92 by orchestrating the firmware&rsquo;s built-in algo-146 unlock + kernel upload from the host side.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/e92a_seedkey_test.py">e92a_seedkey_test.py</a></td>
+            <td>Captures a fresh E92A seed and computes candidate keys for the highest-priority GM 5-byte algorithm indices &mdash; a research aid, not a normal-flow tool.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/e92a_try_algo.py">e92a_try_algo.py</a></td>
+            <td>Fetches a fresh seed, computes the key for a given algo index, and submits it &mdash; one MEC counter attempt per run.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/e92a_try_key.py">e92a_try_key.py</a></td>
+            <td>Sends a single <code>$27 02</code> key on a primed E92A and reports the ECU response. Useful for validating an externally-computed key.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/e92a_unlock_attempt.py">e92a_unlock_attempt.py</a></td>
+            <td>End-to-end E92A authentication using the firmware&rsquo;s built-in algo 146.</td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2>Crypto &amp; seed-key <span class="count">4 tools</span></h2>
+<p>GM seed-to-key derivation: the algorithms behind <code>$27</code> SecurityAccess.</p>
+<div class="card">
+<table>
+    <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+    <tbody>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/seed_key_algo.py">seed_key_algo.py</a></td>
+            <td>Reference implementation of the GM 2-byte seed-to-key algorithm space (1280 algo indices).</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/gm5byte/keylib.py">gm5byte/keylib.py</a></td>
+            <td>Core utilities for the GM 5-byte (AES-128) seed-to-key derivation pipeline used by T87A algo 135 and E92A algo 146.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/gm5byte/keygen.py">gm5byte/keygen.py</a></td>
+            <td>CLI wrapper around <code>keylib</code> for one-shot seed-to-key computation.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/gm5byte/gui.py">gm5byte/gui.py</a></td>
+            <td>PyQt5 GUI front-end for the 5-byte derivation, for users who prefer a window over a terminal.</td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2>Build &amp; packaging <span class="count">5 tools</span></h2>
+<p>Used by the maintainers to produce releases. Most users won&rsquo;t need these directly.</p>
+<div class="card">
+<table>
+    <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+    <tbody>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/bin2header.py">bin2header.py</a></td>
+            <td>Converts a raw binary file to a C header with a byte-array constant plus size and load-address macros.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/build_exe.py">build_exe.py</a></td>
+            <td>Builds the Windows release: PyInstaller bundles for each user-facing tool, batch shortcuts, portable zip, and (with <code>--installer</code>) the Inno Setup <code>Flashy-Tool-Setup-*.exe</code>.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/build_kernel_registry.py">build_kernel_registry.py</a></td>
+            <td>PlatformIO pre-build hook: scans <code>Cernels/</code> for <code>kernel.bin</code> + <code>meta.json</code> entries and emits the auto-generated headers the firmware uses to expose the runtime kernel registry (<code>KLIST</code> / <code>KUSE</code>).</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/detect_port.py">detect_port.py</a></td>
+            <td>Auto-detects the Feather M4 CAN&rsquo;s serial port by USB vendor/product ID; used by the <code>.bat</code> launchers in the Windows release.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/pyinstaller_hook.py">pyinstaller_hook.py</a></td>
+            <td>Runtime hook for PyInstaller bundles: fixes data-file paths and pauses the console on exit so users can read errors.</td></tr>
+    </tbody>
+</table>
+</div>
+
+<div class="footer">
+    Flashy &mdash; J2534 Pass-Thru on Feather M4 CAN. <a href="https://github.com/kidturbo/Flashy">github.com/kidturbo/Flashy</a>
+    &middot; <a href="changelog.html">Changelog</a>
+    &middot; <a href="T87A-Unlock-Recipe.html">T87A Unlock Recipe</a>
+    &middot; <a href="ecu-reference.html">ECU Reference</a>
+</div>
+
+</div>
+</body>
+</html>

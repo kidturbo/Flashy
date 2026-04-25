@@ -492,7 +492,7 @@
             <td class="mono">e200z7</td>
             <td class="mono">4 MB</td>
             <td class="mono">GMLanMPC5XXX</td>
-            <td class="mono">5B:0x92</td>
+            <td class="mono">2B:0x201 / 5B:0x92</td>
             <td class="check">&#10003;</td>
             <td class="check">&#10003;</td>
             <td class="check">&#10003;</td>
@@ -682,12 +682,12 @@
         </tr>
         <tr>
             <td><strong>T42</strong></td>
-            <td class="mono">Unknown</td>
-            <td class="mono">&mdash;</td>
+            <td class="mono">MC683xx?</td>
+            <td class="mono">CPU32</td>
             <td class="mono">1 MB</td>
             <td class="mono">GMLanMPC5XX</td>
             <td class="mono">2B:0x73</td>
-            <td class="cross">&mdash;</td>
+            <td class="maybe">MVP</td>
             <td class="cross">&mdash;</td>
             <td class="cross">&mdash;</td>
             <td><span class="status-badge badge-red">Unknown</span></td>
@@ -725,13 +725,20 @@
                     <div class="field"><span class="field-label">Shadow</span><span class="field-value">0x00FFC000 (16 KB)</span></div>
                 </div>
                 <div class="detail-card full-width">
-                    <h4>Programming Interfaces</h4>
+                    <h4>Programming Interfaces (Early vs. Late variant)</h4>
                     <table class="mem-table">
-                        <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
-                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XXX</td><td>E92Kernel.dat</td><td>5-byte 0x92</td></tr>
-                        <tr><td class="label-col">BAM</td><td>MPC5XXXBam</td><td>MPC5674BAM.dat</td><td>&mdash;</td></tr>
-                        <tr><td class="label-col">JTAG</td><td>e200z7, IR=5</td><td>&mdash;</td><td>&mdash;</td></tr>
+                        <tr><th>Method</th><th>Variant</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>Early (pre-2017)</td><td>GMLanMPC5XXX</td><td>E92Kernel.dat</td><td>2-byte algo 513</td></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>Late / E92A (2017+)</td><td>GMLanMPC5XXX</td><td>E92Kernel.dat</td><td>5-byte algo 146 (AES-128)</td></tr>
+                        <tr><td class="label-col">BAM</td><td>Both</td><td>MPC5XXXBam</td><td>MPC5674BAM.dat</td><td>&mdash;</td></tr>
+                        <tr><td class="label-col">JTAG</td><td>Both</td><td>e200z7, IR=5</td><td>&mdash;</td><td>&mdash;</td></tr>
                     </table>
+                </div>
+                <div class="detail-card full-width">
+                    <h4>Variant Detection (v1.5.0)</h4>
+                    <div class="field"><span class="field-value text">
+                        Firmware command <code>E92ID</code> classifies an attached E92 as <strong>Early</strong> or <strong>Late</strong> from two signals: the OEM part-number cluster (a fixed list of 14 Early PNs and 8 Late PNs maintained in firmware) and VIN position 10 (model year). <code>AUTH</code> uses the result to route 5-byte seeds to algo 146 on Late, and refuses <code>$27 02</code> on UNKNOWN to protect the MEC counter from a wrong-algo attempt. <code>VINWRITE</code> on E92 short-circuits with cal-reflash guidance &mdash; VIN lives in calibration on this family, not as a writable DID.
+                    </span></div>
                 </div>
                 <div class="detail-card">
                     <h4>Flash Passwords</h4>
@@ -746,14 +753,19 @@
                     <div class="field"><span class="field-label">Key offset</span><span class="field-value">0x10154 (0x11 bytes)</span></div>
                 </div>
             </div>
-            <div class="our-status">Kernel: e92_read v0.1 -- 4 MB in 440s (~9 KB/s), checksum 0x233F8347 (3x match), clean $11 01 reset exit</div>
+            <div class="our-status">
+                Read: clean-room kernel reads full 4 MB in 440 s (~9 KB/s), checksum 0x233F8347 (3&times; match), clean <code>$11 01</code> reset exit.
+                Auth: <strong>Late E92A bench-verified 2026-04-25</strong> &mdash; algo 146 unlocks via firmware (seed=8785EEC106 &rarr; key=08B3B3656D, ECU returned <code>$67 02</code>).
+                <strong>Early bench-verified 2026-04-25</strong> &mdash; algo 513 unlocks on a 2016 unit ($27 01/03 returns 2-byte seed, 660B aliased across both levels).
+            </div>
             <div class="verification v-green">
                 <strong>Verification Evidence</strong>
                 <ul>
                     <li>Cited in USBJTAG config (TECUE92BAM.xml, TECUE92CAN.xml, TECUE92JTAG.xml) as MPC5674F</li>
                     <li>JTAG confirmed via e200z7 debug interface</li>
                     <li>Dual FMC register addresses match <a href="https://www.nxp.com/docs/en/reference-manual/MPC5674FRM.pdf" class="ds-link" target="_blank">MPC5674F datasheet</a></li>
-                    <li>Our clean-room Kernel successfully reads 4 MB flash</li>
+                    <li>Clean-room kernel successfully reads 4 MB flash</li>
+                    <li><strong>v1.5.0:</strong> Late E92A unlock proven with firmware-built algo 146 against a 2020 bench unit; Early unlock proven with algo 513 against a 2016 bench unit</li>
                 </ul>
             </div>
         </div>
@@ -1081,7 +1093,22 @@
                     </table>
                 </div>
             </div>
-            <div class="our-status">BAMREAD: 4 MB, 447s, 9.2 KB/s | BAMWRITE: 23 sectors, 380s | HS-CAN read: 32 KB/s (U-Link kernel)</div>
+            <div class="our-status">
+                <strong>Read:</strong> BAMREAD 4 MB in 447 s (9.2 KB/s) &middot; HS-CAN read 32 KB/s with extracted commercial kernel.
+                <strong>Write:</strong> BAMWRITE 23 sectors in 380 s &middot; <strong>v1.4.5:</strong> CALWRITE + FULLWRITE proven on HS-CAN through Flashy without bricking.
+                <strong>Unlock:</strong> 5-patch dual-unlock recipe applied to stock OS via <code>tools/t87a_patch.py</code> &mdash; see the
+                <a href="T87A-Unlock-Recipe.html">T87A Unlock Recipe</a> for the patch map and CRC/Wordsum recalculation.
+                <strong>Cross-OS safety:</strong> HSWRITE compares source-bin OS PN at flash offset <code>0x014638</code> against live TCM OSID via Mode 9 PID 4 <em>before</em> any kernel load &mdash; aborts with banner on mismatch (prevents the cross-OS boot-anchor brick).
+            </div>
+            <div class="detail-card full-width" style="margin-top:0.5rem;">
+                <h4>Verified OS Versions</h4>
+                <table class="mem-table">
+                    <tr><th>OS Version</th><th>Mode</th><th>Status</th><th>Notes</th></tr>
+                    <tr><td class="label-col">24293216</td><td>BAM</td><td><span class="status-badge badge-green">Verified</span></td><td>Read + write (2026-04-22)</td></tr>
+                    <tr><td class="label-col">24286985</td><td>HS-CAN</td><td><span class="status-badge badge-green">Verified</span></td><td>5-patch unlock (HPT lock check at 0x034A70 + bypass patches)</td></tr>
+                    <tr><td class="label-col">other 836-family OSes</td><td>HS-CAN / BAM</td><td><span class="status-badge badge-yellow">Untested</span></td><td>Same patch map expected; cross-OS gate will refuse mismatched bins</td></tr>
+                </table>
+            </div>
             <div class="verification v-green">
                 <strong>Verification Evidence</strong>
                 <ul>
@@ -1091,6 +1118,7 @@
                     <li>MCR C3F88000: 0x05408600 (Code Flash Module 0)</li>
                     <li>MCR C3F8C000: 0x05010600 (Code Flash Module 1)</li>
                     <li>BAMREAD / BAMWRITE verified against JTAG readback</li>
+                    <li><strong>v1.4.5:</strong> Flashy CALWRITE + FULLWRITE bench-verified on HS-CAN; <code>$6C</code> per-module size-field encoding fix landed (M0 LMSR 0x011000 / M1 LMSR 0x021000 / HSR 0x031000)</li>
                 </ul>
             </div>
         </div>
@@ -1543,34 +1571,39 @@
     <details class="insufficient">
         <summary>
             <span class="ecu-name">T42 TCM</span>
-            <span class="mcu-chip">Unknown (likely MC68376 or similar 68K)</span>
+            <span class="mcu-chip">MC683xx family (CPU32, 1 MB flash; exact part TBD)</span>
         </summary>
         <div class="detail-body">
             <div class="detail-grid">
                 <div class="detail-card">
                     <h4>MCU / Core</h4>
-                    <div class="field"><span class="field-label">MCU</span><span class="field-value">Unknown</span></div>
-                    <div class="field"><span class="field-label">Note</span><span class="field-value text">Same 1 MB flash and GMLanMPC5XX protocol as E40 (MC68376). Likely same MCU family (MC683xx / CPU32), but not confirmed.</span></div>
+                    <div class="field"><span class="field-label">MCU</span><span class="field-value">MC683xx / CPU32 (68K)</span></div>
+                    <div class="field"><span class="field-label">Note</span><span class="field-value text">Kernel load address <code>0xFF9000</code> places execution in the SRAM region typical of MC683xx-family parts; 1 MB internal flash matches the MC68377 variant. MC68376 (used by E40) is the next closest candidate. Exact MCU still pending physical confirmation (board photo or BDM IDCODE).</span></div>
                 </div>
                 <div class="detail-card">
                     <h4>Memory</h4>
                     <div class="field"><span class="field-label">Flash</span><span class="field-value">1 MB</span></div>
+                    <div class="field"><span class="field-label">Kernel load</span><span class="field-value">0xFF9000 (SRAM)</span></div>
                 </div>
                 <div class="detail-card full-width">
                     <h4>Programming Interfaces</h4>
                     <table class="mem-table">
                         <tr><th>Method</th><th>Protocol</th><th>Kernel</th><th>Algo</th></tr>
-                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>T42Kernel.dat</td><td>2-byte 0x73 (algo 371)</td></tr>
+                        <tr><td class="label-col">HS-CAN</td><td>GMLanMPC5XX</td><td>T42Kernel.dat (clean-room MVP)</td><td>2-byte algo 371 (0x73)</td></tr>
                     </table>
                 </div>
             </div>
-            <div class="our-status none">No Kernel or live testing yet</div>
+            <div class="our-status">
+                <strong>v1.5.0 MVP:</strong> Auth + kernel upload + post-boot ping (<code>$1A 55</code> &rarr; <code>$5A 55 F L A S H</code>) bench-verified on HS-CAN.
+                Kernel uploads via <code>$34</code> RequestDownload + <code>$36</code> TransferData (1012 B payload, no <code>$37</code>; bootloader auto-jumps).
+                Five test variants A&ndash;E (<code>T42READ A</code> &hellip; <code>T42READ E</code>) provide rapid bench iteration of session/heartbeat/probe variations. Flash-read loop is the next milestone.
+            </div>
             <div class="verification v-red">
                 <strong>Verification Evidence</strong>
                 <ul>
-                    <li>No &lt;CPU&gt; tag, BDM SubProtocol, JTAG data, or board photo</li>
-                    <li>Only known data: 1 MB flash, GMLanMPC5XX protocol, 2-byte algo 0x73</li>
-                    <li>Shares flash size and protocol with E40 (MC68376) &mdash; likely same MCU family</li>
+                    <li>Kernel boot + ping confirmed on bench &mdash; the auth/upload pipeline is correct.</li>
+                    <li>Kernel load address (<code>0xFF9000</code>) and 1 MB flash size align with MC68377; MCU still unconfirmed without a board photo or BDM IDCODE.</li>
+                    <li>2-byte algo 371 (<code>0x73</code>) and GMLanMPC5XX protocol match published config data.</li>
                 </ul>
             </div>
         </div>

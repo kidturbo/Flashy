@@ -17,6 +17,7 @@ This wiki is written for users — building the hardware, flashing the firmware,
 | [Hardware Assembly](Hardware-Assembly) | Stack the boards, break the 120Ω terminator, wire the OBD-II cable |
 | [Getting Started](Getting-Started) | Flash the firmware and connect your first time |
 | [Downloads](Downloads) | What's in the `Flashy-Tool.zip` release and how to use it |
+| [Tools Reference](https://kidturbo.github.io/Flashy/Tools-Reference.html) | The Python scripts in `tools/` — bench drivers, kernel extractors, crypto helpers |
 | [Documentation Index](Documentation-Index) | All the deep technical docs in one place |
 
 ---

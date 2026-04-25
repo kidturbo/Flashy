@@ -10,6 +10,7 @@ All the deep technical documentation lives at [kidturbo.github.io/Flashy](https:
 | [J2534 CAN Bus Reference](https://kidturbo.github.io/Flashy/J2534-CANbus-Reference.html) | Full J2534 Pass-Thru protocol reference — CAN IDs, ISO-TP framing, UDS service list, error codes |
 | [Read / Write Instructions](https://kidturbo.github.io/Flashy/Read-Write-Instructions.html) | Step-by-step usage guide for every read/write workflow, with serial command examples |
 | [T87A Unlock Recipe](https://kidturbo.github.io/Flashy/T87A-Unlock-Recipe.html) | The 5-patch dual-unlock technique (USBJTAG signature bypass + HPT unlock), flash memory map, verified OS versions |
+| [Tools Reference](https://kidturbo.github.io/Flashy/Tools-Reference.html) | One-line summary and source link for every Python tool in `tools/` — bench drivers, kernel extractors, T87A/E92 helpers, crypto |
 | [Changelog](https://kidturbo.github.io/Flashy/changelog.html) | Version history and release notes |
 
 ## Wiki Pages
