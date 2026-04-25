@@ -35,6 +35,26 @@ Cernels/**/*.elf
 Cernels/**/*.map
 Cernels/**/*.lst
 
+# Private kernel library — never committed. Users drop their own
+# kernel binaries + meta.json into Cernels/private/<folder>/.
+Cernels/private/**
+!Cernels/private/.gitkeep
+!Cernels/private/meta.json.template
+
+# Extracted kernel dumps — tools/extract_*.py defaults target here.
+# Users move/rename into Cernels/private/ once verified.
+Cernels/extracted/**
+!Cernels/extracted/.gitkeep
+
+# Auto-generated kernel header dir (one .h per kernel bin, regenerated
+# every build by tools/build_kernel_registry.py).
+src/kernels_generated/
+src/kernels_private.h
+src/kernels_public.h
+
+# Locally-extracted kernel headers — keep out of public commits.
+src/kernel_*_extracted*.h
+
 # Strays / local dev artifacts
 COM38
 uf2conv.py

@@ -115,6 +115,18 @@
 </div>
 
 <!-- ============================================================ -->
+<h2>v1.5.0 &mdash; Interactive menu, E92 variant gates, kernel registry <span class="date">2026-04-25</span></h2>
+<div class="card">
+    <ul>
+        <li><span class="tag tag-added">Added</span> <strong>Interactive menu</strong> auto-launches at boot &mdash; module-aware op picker, inline VIN/file prompts, raw-command escape on option 6.</li>
+        <li><span class="tag tag-added">Added</span> <strong>E92 variant detection</strong> (<code>E92ID</code>) and AUTH gate &mdash; routes 5-byte seeds to algo 146 on late E92, refuses <code>$27 02</code> on unknown variants to protect the MEC counter.</li>
+        <li><span class="tag tag-added">Added</span> <strong>Kernel registry</strong> &mdash; drop <code>kernel.bin</code> + <code>meta.json</code> under <code>Cernels/private/&lt;id&gt;/</code>, picked up at build. New <code>KLIST</code> / <code>KUSE</code> commands.</li>
+        <li><span class="tag tag-added">Added</span> <strong>Runtime parameter overrides</strong> (<code>SET</code> / <code>PARAMS</code>) and three new dev tools (<code>flashy_diag</code>, <code>socketcan_sniff</code>, <code>vinwrite_debug</code>).</li>
+        <li><span class="tag tag-fixed">Fixed</span> Serial backspace handling, <code>VINWRITE</code> fallback to UDS <code>$2E F190</code>, longer filename support in <code>cmd_kernel_read</code>, clearer SD mkdir warnings.</li>
+    </ul>
+</div>
+
+<!-- ============================================================ -->
 <h2>v1.4.5 &mdash; T87A CAL + Full Write proven, cross-OS safety gate, FLASHY branding <span class="date">2026-04-22</span></h2>
 <div class="card">
     <p><span class="tag tag-added">Added</span> <strong>First bench-verified Flashy CAL &amp; Full Write on T87A without bricking.</strong> Root cause of earlier brick attempts identified as an incorrect <code>$6C</code> size-field encoding. Per-module encoding mined from NT-Link reference capture, applied to Flashy, validated end-to-end.</p>

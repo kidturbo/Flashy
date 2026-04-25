@@ -23,6 +23,114 @@ extern "C" {
 #include "gm_kernels.h"
 #include "t87a_kernel.h"
 #include "e67_kernel.h"
+#include "kernel_registry.h"
+
+/* === Runtime parameter overrides (Phase 4) ==========================
+ * Users can override kernel-metadata defaults via the SET serial command
+ * without rebuilding. -1 / 0xFFFF means "use kernel metadata default". */
+struct flashy_params_t {
+    int32_t boot_delay_ms;     /* -1 = use kern->boot_delay_ms */
+    int16_t probe_svc;         /* -1 = use kern->probe_svc; 0 = skip probe */
+    int16_t probe_pid;         /* -1 = use kern->probe_pid */
+    int8_t  use_txe;           /* -1 = use kern->use_txe */
+    int8_t  send_3e_after;     /* -1 = default (send once); 0 = suppress */
+    int16_t cadence_3e_ms;     /* 0 = no cadence; else ms between $3E during boot_delay */
+};
+static flashy_params_t g_params = {-1, -1, -1, -1, -1, 0};
+
+static void cmd_params(void)
+{
+    Serial.println("PARAMS:");
+    Serial.print("  BOOT_DELAY_MS   = ");
+    if (g_params.boot_delay_ms < 0) Serial.println("(default, kernel meta)");
+    else                            Serial.println(g_params.boot_delay_ms);
+    Serial.print("  PROBE_SVC       = ");
+    if (g_params.probe_svc < 0) Serial.println("(default, kernel meta)");
+    else if (g_params.probe_svc == 0) Serial.println("0 (no probe)");
+    else { Serial.print("0x"); Serial.println(g_params.probe_svc, HEX); }
+    Serial.print("  PROBE_PID       = ");
+    if (g_params.probe_pid < 0) Serial.println("(default, kernel meta)");
+    else { Serial.print("0x"); Serial.println(g_params.probe_pid, HEX); }
+    Serial.print("  USE_TXE         = ");
+    if (g_params.use_txe < 0) Serial.println("(default, kernel meta)");
+    else                      Serial.println(g_params.use_txe ? "1" : "0");
+    Serial.print("  SEND_3E_AFTER   = ");
+    if (g_params.send_3e_after < 0) Serial.println("(default = 1)");
+    else                            Serial.println(g_params.send_3e_after ? "1" : "0");
+    Serial.print("  CADENCE_3E_MS   = ");
+    Serial.println(g_params.cadence_3e_ms);
+}
+
+static int32_t _parse_signed_hex_or_int(const char *s)
+{
+    if (!s || !*s) return 0;
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        return (int32_t)strtol(s, nullptr, 16);
+    }
+    return (int32_t)strtol(s, nullptr, 10);
+}
+
+static void cmd_set(const char *arg)
+{
+    if (!arg || !*arg) {
+        Serial.println("usage: SET <KEY> <VALUE>   (or SET RESET)");
+        Serial.println("  KEYs: BOOT_DELAY_MS, PROBE_SVC, PROBE_PID, USE_TXE,");
+        Serial.println("        SEND_3E_AFTER, CADENCE_3E_MS");
+        Serial.println("  VALUE: integer or 0x-prefixed hex. -1 restores default.");
+        Serial.println("  e.g.:  SET BOOT_DELAY_MS 1500");
+        Serial.println("         SET PROBE_SVC 0      (skip probe entirely)");
+        Serial.println("         SET PROBE_SVC -1     (restore kernel default)");
+        return;
+    }
+    /* Copy-safe parse: key UPCASE, value after first whitespace. */
+    char keybuf[24];
+    const char *space = strchr(arg, ' ');
+    if (!space) {
+        if (strcasecmp(arg, "RESET") == 0 || strcasecmp(arg, "CLEAR") == 0) {
+            g_params = {-1, -1, -1, -1, -1, 0};
+            Serial.println("SET: all params reset to kernel-metadata defaults");
+            return;
+        }
+        Serial.println("SET: missing value");
+        return;
+    }
+    size_t klen = (size_t)(space - arg);
+    if (klen >= sizeof(keybuf)) klen = sizeof(keybuf) - 1;
+    for (size_t i = 0; i < klen; i++) keybuf[i] = (char)toupper((unsigned char)arg[i]);
+    keybuf[klen] = '\0';
+    while (*space == ' ') space++;
+    int32_t v = _parse_signed_hex_or_int(space);
+
+    if      (strcmp(keybuf, "BOOT_DELAY_MS") == 0) g_params.boot_delay_ms = v;
+    else if (strcmp(keybuf, "PROBE_SVC")     == 0) g_params.probe_svc     = (int16_t)v;
+    else if (strcmp(keybuf, "PROBE_PID")     == 0) g_params.probe_pid     = (int16_t)v;
+    else if (strcmp(keybuf, "USE_TXE")       == 0) g_params.use_txe       = (int8_t)v;
+    else if (strcmp(keybuf, "SEND_3E_AFTER") == 0) g_params.send_3e_after = (int8_t)v;
+    else if (strcmp(keybuf, "CADENCE_3E_MS") == 0) g_params.cadence_3e_ms = (int16_t)v;
+    else {
+        Serial.print("SET: unknown key '"); Serial.print(keybuf); Serial.println("'");
+        return;
+    }
+    Serial.print("SET "); Serial.print(keybuf); Serial.print(" = ");
+    Serial.println(v);
+}
+
+/* Resolve effective params for a T42READ run: overrides win over kernel metadata. */
+static uint16_t _eff_boot_delay(const kernel_entry_t *k) {
+    return (g_params.boot_delay_ms < 0) ? (uint16_t)(k ? k->boot_delay_ms : 500)
+                                        : (uint16_t)g_params.boot_delay_ms;
+}
+static uint8_t  _eff_probe_svc(const kernel_entry_t *k) {
+    return (g_params.probe_svc < 0) ? (uint8_t)(k ? k->probe_svc : 0x1A)
+                                    : (uint8_t)g_params.probe_svc;
+}
+static uint8_t  _eff_probe_pid(const kernel_entry_t *k) {
+    return (g_params.probe_pid < 0) ? (uint8_t)(k ? k->probe_pid : 0xBB)
+                                    : (uint8_t)g_params.probe_pid;
+}
+static bool     _eff_send_3e(void) {
+    return (g_params.send_3e_after < 0) ? true : (g_params.send_3e_after != 0);
+}
 /* Clean-room "Kernel" for E92 ECM (MPC5xxx-family, exact variant
  * unconfirmed) — see Kernels/e92_read/.
  * Generated from Kernels/e92_read/kernel.bin by tools/bin2header.py.
@@ -50,6 +158,14 @@ extern "C" {
 #define ROLLIN_SMOKE_T87A_AVAILABLE 1
 #else
 #define ROLLIN_SMOKE_T87A_AVAILABLE 0
+#endif
+
+/* T42 clean-room read kernel (MC68377 CPU32X, loads at 0xFF9000). */
+#if __has_include("kernel_t42_private.h")
+#include "kernel_t42_private.h"
+#define KERNEL_T42_AVAILABLE 1
+#else
+#define KERNEL_T42_AVAILABLE 0
 #endif
 
 #if __has_include("e92_kernel_private.h")
@@ -190,6 +306,21 @@ static gm_module_t g_module      = MODULE_NONE; /* set by ALGO/MENU; none at boo
 static bool     g_extkern_active   = false;   /* external-kernel raw CAN mode — skip ISO-TP RX */
 static bool     g_reading_active  = false;   /* true during any read — suppresses NeoPixel IRQ interference */
 static bool     g_t87a_detected  = false;   /* set when 5-byte seed seen on T87 */
+
+/* E92 has two hardware/firmware generations with different unlock strategies:
+ *   EARLY (pre-2017, "4-wire") — algo 513 unlocks, live algo in Flashy.
+ *   LATE  (2017+ "E92A", "a-module", "3-wire") — algo unknown publicly,
+ *                                                 algo 513 will NOT unlock.
+ * Variant is detected at the top of cmd_e92_fullread (or via E92ID command)
+ * from OSID PN cluster + VIN model-year character. AUTH refuses to fire a
+ * $27 02 on LATE so we don't burn the ECM's MEC counter. */
+typedef enum {
+    E92_VARIANT_UNKNOWN = 0,
+    E92_VARIANT_EARLY,
+    E92_VARIANT_LATE
+} e92_variant_t;
+static e92_variant_t g_e92_variant = E92_VARIANT_UNKNOWN;
+static e92_variant_t e92_variant_probe(void);  /* reads UDS, sets g_e92_variant */
 
 /* T93 is hardware-identical to T87A (same SPC564A80 MCU). Use this helper
  * anywhere the firmware needs to treat T87/T87A/T93 the same way. */
@@ -697,6 +828,12 @@ static void cmd_auth(const char *arg)
     if (!g_can_initialized) { print_err("not initialized"); return; }
     if (no_kernel_for_active_module()) return;
 
+    /* E92 variant probe: lazy-fill so the seed_len==5 branch below knows
+     * to route LATE (E92A) through algo 146 instead of T87A's algo 135. */
+    if (g_module == MODULE_E92 && g_e92_variant == E92_VARIANT_UNKNOWN) {
+        (void)e92_variant_probe();
+    }
+
     led_auth();
     /* Step 1: request seed (level 0x01) */
     uint8_t  seed[32];
@@ -711,8 +848,10 @@ static void cmd_auth(const char *arg)
     }
     Serial.println();
 
-    /* Detect T87A from 5-byte seed */
-    if (seed_len == 5) g_t87a_detected = true;
+    /* 5-byte seed = T87A family — except for E92A LATE, which also uses
+     * a 5-byte seed but a different algo (146 vs T87A's 135). Don't flag
+     * T87A in that case. */
+    if (seed_len == 5 && g_module != MODULE_E92) g_t87a_detected = true;
 
     /* Check for all-zero seed (already unlocked) */
     if (seed_is_all_zero(seed, seed_len)) {
@@ -748,13 +887,24 @@ static void cmd_auth(const char *arg)
         if (key[1] < 0x10) Serial.print('0');
         Serial.println(key[1], HEX);
     } else if (seed_len == 5) {
-        /* Auto-compute key from 5-byte seed using T87A algo 135 */
-        if (!gm5byte_compute_key(seed, key)) {
+        /* 5-byte seed: route to the right algo by module.
+         *   - E92 LATE / E92A    -> algo 146 (bench-verified 2026-04-25)
+         *   - T87A / T93 / others -> algo 135 (existing) */
+        bool ok;
+        const char *algo_name;
+        if (g_module == MODULE_E92 && g_e92_variant == E92_VARIANT_LATE) {
+            ok = gm5byte_compute_key_e92a(seed, key);
+            algo_name = "146";
+        } else {
+            ok = gm5byte_compute_key(seed, key);
+            algo_name = "135";
+        }
+        if (!ok) {
             print_err("5-byte seed out of range");
             return;
         }
         key_len = 5;
-        Serial.print("KEY:  ");
+        Serial.print("KEY (algo "); Serial.print(algo_name); Serial.print("):  ");
         for (int i = 0; i < 5; i++) {
             if (key[i] < 0x10) Serial.print('0');
             Serial.print(key[i], HEX);
@@ -966,32 +1116,84 @@ static bool kernel_upload_and_verify(void)
             Serial.print("  resp.nrc=0x");      Serial.println(resp.nrc, HEX);
             return false;
         }
-        uint16_t seed = ((uint16_t)resp.data[0] << 8) | resp.data[1];
-        Serial.print("  SEED: 0x"); Serial.println(seed, HEX);
+        /* Detect seed length from the response. E92 EARLY = 2 bytes,
+         * E92 LATE / E92A = 5 bytes (algo 146). */
+        const bool is_e92a_late = (g_module == MODULE_E92 &&
+                                   g_e92_variant == E92_VARIANT_LATE &&
+                                   resp.data_len >= 5);
 
-        /* GM convention: seed == 0 means "already authenticated". The ECU
-         * remembers our prior $27 02 across the kernel crash and signals
-         * we're still unlocked. In that case DON'T repeat $A5 01/03 —
-         * re-broadcasting programming-mode entry while already in it
-         * makes $34 fail with NRC 0x22 conditionsNotCorrect. Observed
-         * clearly on E92-Kernel_Full_Read2.csv re-upload #3. */
-        if (seed == 0) {
-            Serial.println("  seed=0 -> already authenticated & in prog. mode");
-            Serial.println("  (skipping key + $A5 broadcasts, direct to $34)");
-            already_in_prog_mode = true;
-        } else {
-            uint16_t key = seedkey_compute(seed);
-            Serial.print("  KEY:  0x"); Serial.println(key, HEX);
-
-            uint8_t sa_key[4] = { 0x27, 0x02, (uint8_t)(key >> 8), (uint8_t)key };
-            ret = uds_request(&g_isotp_link, sa_key, 4, &resp, UDS_PENDING_TIMEOUT_MS);
-            if (ret != UDS_OK) {
-                led_error();
-                Serial.print("ERR: key rejected ret="); Serial.println(ret);
-                if (ret == UDS_ERR_NEGATIVE) { Serial.print("  NRC=0x"); Serial.println(resp.nrc, HEX); }
-                return false;
+        if (is_e92a_late) {
+            /* 5-byte path: algo 146 */
+            uint8_t seed5[5];
+            memcpy(seed5, resp.data, 5);
+            Serial.print("  SEED: ");
+            for (int i = 0; i < 5; i++) {
+                if (seed5[i] < 0x10) Serial.print('0');
+                Serial.print(seed5[i], HEX);
             }
-            Serial.println("  Security unlocked");
+            Serial.println();
+
+            /* All-zero seed = already unlocked */
+            bool seed0 = true;
+            for (int i = 0; i < 5; i++) if (seed5[i]) { seed0 = false; break; }
+            if (seed0) {
+                Serial.println("  seed=0 -> already authenticated & in prog. mode");
+                Serial.println("  (skipping key + $A5 broadcasts, direct to $34)");
+                already_in_prog_mode = true;
+            } else {
+                uint8_t key5[5];
+                if (!gm5byte_compute_key_e92a(seed5, key5)) {
+                    led_error();
+                    Serial.println("ERR: 5-byte seed out of range (algo 146)");
+                    return false;
+                }
+                Serial.print("  KEY (algo 146):  ");
+                for (int i = 0; i < 5; i++) {
+                    if (key5[i] < 0x10) Serial.print('0');
+                    Serial.print(key5[i], HEX);
+                }
+                Serial.println();
+
+                uint8_t sa_key[7] = { 0x27, 0x02,
+                                       key5[0], key5[1], key5[2], key5[3], key5[4] };
+                ret = uds_request(&g_isotp_link, sa_key, 7, &resp, UDS_PENDING_TIMEOUT_MS);
+                if (ret != UDS_OK) {
+                    led_error();
+                    Serial.print("ERR: key rejected ret="); Serial.println(ret);
+                    if (ret == UDS_ERR_NEGATIVE) { Serial.print("  NRC=0x"); Serial.println(resp.nrc, HEX); }
+                    return false;
+                }
+                Serial.println("  Security unlocked (E92A algo 146)");
+            }
+        } else {
+            /* 2-byte path: algo 513 (E92 EARLY) */
+            uint16_t seed = ((uint16_t)resp.data[0] << 8) | resp.data[1];
+            Serial.print("  SEED: 0x"); Serial.println(seed, HEX);
+
+            /* GM convention: seed == 0 means "already authenticated". The ECU
+             * remembers our prior $27 02 across the kernel crash and signals
+             * we're still unlocked. In that case DON'T repeat $A5 01/03 —
+             * re-broadcasting programming-mode entry while already in it
+             * makes $34 fail with NRC 0x22 conditionsNotCorrect. Observed
+             * clearly on E92-Kernel_Full_Read2.csv re-upload #3. */
+            if (seed == 0) {
+                Serial.println("  seed=0 -> already authenticated & in prog. mode");
+                Serial.println("  (skipping key + $A5 broadcasts, direct to $34)");
+                already_in_prog_mode = true;
+            } else {
+                uint16_t key = seedkey_compute(seed);
+                Serial.print("  KEY:  0x"); Serial.println(key, HEX);
+
+                uint8_t sa_key[4] = { 0x27, 0x02, (uint8_t)(key >> 8), (uint8_t)key };
+                ret = uds_request(&g_isotp_link, sa_key, 4, &resp, UDS_PENDING_TIMEOUT_MS);
+                if (ret != UDS_OK) {
+                    led_error();
+                    Serial.print("ERR: key rejected ret="); Serial.println(ret);
+                    if (ret == UDS_ERR_NEGATIVE) { Serial.print("  NRC=0x"); Serial.println(resp.nrc, HEX); }
+                    return false;
+                }
+                Serial.println("  Security unlocked");
+            }
         }
     }
 
@@ -1132,7 +1334,10 @@ static void cmd_kernel_read(const char *arg)
     const uint16_t BLOCK       = 2048;
     const uint8_t  MAX_RETRIES = 3;
 
-    char fname[48];
+    /* Match g_sd_filename's 128-byte size — long paths like
+     * /Read/E92_<16-char OSID>_FULLREAD_<13-char ts>.bin run ~54 chars
+     * and were getting truncated mid-filename in the old 48-byte buffer. */
+    char fname[128];
     if (g_sd_filename[0]) {
         strncpy(fname, g_sd_filename, sizeof(fname) - 1);
         fname[sizeof(fname) - 1] = '\0';
@@ -1381,6 +1586,7 @@ static bool kexit_run_trailer_and_observe(void);
 extern char g_vin[];
 extern char g_osid[];
 static bool read_vin_from_ecu(void);
+static bool do_security_access(void);
 static bool read_osid_from_ecu(void);
 static bool hsread_upload_rollin_smoke(void);
 
@@ -1443,6 +1649,229 @@ static bool e92_read_osid_local(char *out, size_t n)
     return (j > 0);
 }
 
+/* E92 OEM part numbers documented in public part-number databases as
+ * belonging to each generation. Sourced from research memory
+ * e92_variants.md — public data only, safe for public release. */
+static const uint32_t E92_EARLY_PN[] = {
+    12669908, 12676683, 12680876, 12683660, 12687328, 12687467,
+    12688128, 12688973, 12695198, 12697788, 12700116, 12702505,
+    12636060, 19432266,
+    12671993   /* 2016 bench unit, VIN 1G1YU2D60G5XXXXXXX — confirmed
+                * 2026-04-25: $27 01/03 returns 2-byte seed (660B aliased
+                * across both levels), algo 513 unlocks. */
+};
+static const uint32_t E92_LATE_PN[]  = {
+    12674052, 12692067, 12692069, 12704475, 12680656, 12686383,
+    12688528,
+    12699552   /* 2020 bench unit, VIN masked — confirmed 2026-04-24:
+                * $27 01 returns 2-byte seed, $27 02 returns NRC 0x12
+                * (level 02 not supported). Algo 513 may still be correct
+                * but sub-level pair is wrong — see E92SAPROBE. */
+};
+
+/* VIN position 10 (0-indexed 9) encodes model year per ISO 3779/3780.
+ * 2010-2039 cycle chars: A..Y skipping I/O/Q/U/Z. Returns 4-digit year
+ * or 0 on unrecognised char. */
+static uint16_t e92_vin_model_year(const char *vin)
+{
+    if (!vin || strlen(vin) < 10) return 0;
+    char c = vin[9];
+    switch (c) {
+        case 'A': return 2010; case 'B': return 2011; case 'C': return 2012;
+        case 'D': return 2013; case 'E': return 2014; case 'F': return 2015;
+        case 'G': return 2016; case 'H': return 2017; case 'J': return 2018;
+        case 'K': return 2019; case 'L': return 2020; case 'M': return 2021;
+        case 'N': return 2022; case 'P': return 2023; case 'R': return 2024;
+        case 'S': return 2025; case 'T': return 2026; case 'V': return 2027;
+        case 'W': return 2028; case 'X': return 2029; case 'Y': return 2030;
+        default: return 0;
+    }
+}
+
+/* Parse an OSID/PN string (Mode 9 $04 cal ID, or $1A B4 OS PN) to an
+ * 8-digit GM PN if possible. Extracts the first run of digits of length
+ * 8; returns 0 if nothing matches. */
+static uint32_t e92_parse_pn(const char *osid)
+{
+    if (!osid) return 0;
+    const char *p = osid;
+    while (*p) {
+        if (*p >= '0' && *p <= '9') {
+            int n = 0;
+            uint32_t v = 0;
+            while (p[n] >= '0' && p[n] <= '9' && n < 9) {
+                v = v * 10 + (uint32_t)(p[n] - '0');
+                n++;
+            }
+            if (n == 8) return v;
+            p += n;
+        } else {
+            p++;
+        }
+    }
+    return 0;
+}
+
+/* Classify from already-known PN + VIN strings. Does NOT touch the bus.
+ * Priority: PN exact match > VIN year > UNKNOWN. */
+static e92_variant_t e92_classify_variant(uint32_t pn, uint16_t year)
+{
+    if (pn) {
+        for (size_t i = 0; i < sizeof(E92_EARLY_PN)/sizeof(E92_EARLY_PN[0]); i++) {
+            if (E92_EARLY_PN[i] == pn) return E92_VARIANT_EARLY;
+        }
+        for (size_t i = 0; i < sizeof(E92_LATE_PN)/sizeof(E92_LATE_PN[0]); i++) {
+            if (E92_LATE_PN[i] == pn) return E92_VARIANT_LATE;
+        }
+    }
+    if (year >= 2014 && year <= 2016) return E92_VARIANT_EARLY;
+    if (year >= 2018)                 return E92_VARIANT_LATE;
+    /* 2017 is the overlap year; without a PN match we can't tell. */
+    return E92_VARIANT_UNKNOWN;
+}
+
+/* Probe E92: read VIN + OSID over CAN, classify, print banner, cache
+ * result in g_e92_variant. Returns the detected variant. Safe to call
+ * multiple times — each call is three short UDS requests ($1A 90,
+ * $09 04 or $1A B4). No writes, no session changes. */
+static e92_variant_t e92_variant_probe(void)
+{
+    if (!g_can_initialized) {
+        Serial.println("E92ID: CAN not initialized — run INIT first");
+        return E92_VARIANT_UNKNOWN;
+    }
+
+    char osid[20] = {0};
+    (void)read_vin_from_ecu();           /* fills g_vin */
+    (void)e92_read_osid_local(osid, sizeof(osid));
+
+    uint32_t pn    = e92_parse_pn(osid);
+    uint16_t year  = e92_vin_model_year(g_vin);
+    e92_variant_t v = e92_classify_variant(pn, year);
+    g_e92_variant = v;
+
+    Serial.print("E92 ID: PN=");
+    if (pn) Serial.print(pn);
+    else    Serial.print(osid[0] ? osid : "?");
+    Serial.print("  VIN=");
+    Serial.print(g_vin[0] ? g_vin : "?");
+    if (year) { Serial.print(" (year="); Serial.print(year); Serial.print(")"); }
+    Serial.println();
+
+    Serial.print("E92 Variant: ");
+    switch (v) {
+        case E92_VARIANT_EARLY:
+            Serial.println("EARLY (pre-2017, algo 513) — SUPPORTED");
+            break;
+        case E92_VARIANT_LATE:
+            Serial.println("LATE / E92A (2017+, algo 146) — SUPPORTED");
+            break;
+        default:
+            Serial.println("UNKNOWN — PN not in catalog, VIN year inconclusive");
+            Serial.println("  AUTH will attempt EARLY (algo 513) by default;");
+            Serial.println("  if it fails, run E92ID then AUTH again to retry as LATE.");
+            break;
+    }
+    return v;
+}
+
+static void cmd_e92id(void)
+{
+    (void)e92_variant_probe();
+    print_ok();
+}
+
+/* E92SAPROBE — diagnostic sweep of SecurityAccess sub-function levels.
+ * Sends $27 <odd-level> requestSeed to each common GM Gen-V pair and
+ * reports which levels return a seed, the seed length, and whether the
+ * seed is non-zero/non-stub. NEVER sends a key ($27 even-level), so the
+ * MEC counter is untouched — safe to run repeatedly.
+ *
+ * Use case: figure out which level pair E92A wants for programming
+ * unlock, since $27 01/02 returns NRC 0x12 on the LATE variant. Run on
+ * both EARLY and LATE bench units and compare to identify the pair. */
+static void cmd_e92saprobe(void)
+{
+    if (!g_can_initialized) { print_err("not initialized"); return; }
+
+    /* Levels GM Gen-V ECMs are commonly seen using. Odd values only
+     * (request-seed). Sub-functions $01-$3F are SAE/UDS-defined; higher
+     * values are OEM-specific. Keep the list small but representative. */
+    static const uint8_t LEVELS[] = {
+        0x01, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F, 0x11, 0x13
+    };
+
+    Serial.println("E92SAPROBE: scanning SecurityAccess sub-function levels");
+    Serial.println("  (request-seed only; no key submission, MEC counter safe)");
+    Serial.print  ("  module: ");
+    Serial.print(g_module == MODULE_E92 ? "E92" : "(non-E92)");
+    Serial.print  ("  variant: ");
+    switch (g_e92_variant) {
+        case E92_VARIANT_EARLY: Serial.println("EARLY"); break;
+        case E92_VARIANT_LATE:  Serial.println("LATE / E92A"); break;
+        default:                Serial.println("UNKNOWN (run E92ID first)"); break;
+    }
+
+    int got_count = 0;
+    for (size_t i = 0; i < sizeof(LEVELS)/sizeof(LEVELS[0]); i++) {
+        uint8_t  lvl = LEVELS[i];
+        uint8_t  seed[32];
+        uint16_t seed_len = 0;
+        int ret = uds_security_access_seed(&g_isotp_link, lvl,
+                                           seed, &seed_len);
+
+        Serial.print("  $27 ");
+        if (lvl < 0x10) Serial.print('0');
+        Serial.print(lvl, HEX);
+        Serial.print(": ");
+        if (ret == UDS_OK) {
+            got_count++;
+            Serial.print("SEED(");
+            Serial.print(seed_len);
+            Serial.print("B)=");
+            for (uint16_t j = 0; j < seed_len && j < 16; j++) {
+                if (seed[j] < 0x10) Serial.print('0');
+                Serial.print(seed[j], HEX);
+            }
+            if (seed_is_all_zero(seed, seed_len)) {
+                Serial.print(" [ZERO=already unlocked]");
+            }
+            Serial.println();
+        } else if (ret == UDS_ERR_NEGATIVE) {
+            /* Try to extract NRC. uds_security_access_seed doesn't expose
+             * the response struct directly, so re-issue via uds_request to
+             * get the NRC byte. */
+            uint8_t req[2] = { 0x27, lvl };
+            uds_msg_t resp;
+            int r2 = uds_request(&g_isotp_link, req, 2, &resp,
+                                 UDS_DEFAULT_TIMEOUT_MS);
+            if (r2 == UDS_ERR_NEGATIVE) {
+                Serial.print("NRC 0x"); Serial.println(resp.nrc, HEX);
+            } else {
+                Serial.println("NEGATIVE (NRC unread)");
+            }
+        } else if (ret == UDS_ERR_TIMEOUT) {
+            Serial.println("timeout");
+        } else {
+            Serial.print("ret=");
+            Serial.println(ret);
+        }
+
+        /* Small gap so the ECU doesn't see this as a flood. */
+        delay(50);
+    }
+
+    Serial.print("E92SAPROBE: ");
+    Serial.print(got_count);
+    Serial.print(" of ");
+    Serial.print((int)(sizeof(LEVELS)/sizeof(LEVELS[0])));
+    Serial.println(" levels returned a seed");
+    Serial.println("  Hint: on EARLY, expect only $27 01 alive.");
+    Serial.println("  On LATE (E92A), look for an additional alive level — that's the");
+    Serial.println("  programming-unlock pair we don't yet know the algo for.");
+    print_ok();
+}
+
 static void cmd_e92_fullread(void)
 {
     if (!g_sd_ok) { print_err("no SD card"); return; }
@@ -1457,6 +1886,33 @@ static void cmd_e92_fullread(void)
     /* 2. Module context. Force E92 IDs + seed-key algo. */
     cmd_algo("e92");
 
+    /* 2b. Variant banner — PN+VIN classifier. If LATE or UNKNOWN, the user
+     *     must confirm with YES before we continue, since algo 513 will
+     *     fail to unlock and a bad $27 02 increments the ECM's MEC counter. */
+    e92_variant_t v = e92_variant_probe();
+    if (v == E92_VARIANT_UNKNOWN) {
+        Serial.println("  Variant could not be classified (PN not catalogued, year inconclusive).");
+        Serial.println("  Proceed anyway? Type YES to continue, anything else aborts:");
+        char yn[8]; int yp = 0; uint32_t t0 = millis();
+        while (millis() - t0 < 20000) {
+            if (Serial.available()) {
+                char c = (char)Serial.read();
+                if (c == '\n' || c == '\r') { if (yp > 0) break; }
+                else if (c == 0x08 || c == 0x7F) { if (yp > 0) yp--; }
+                else if (yp < (int)sizeof(yn) - 1) yn[yp++] = c;
+            }
+        }
+        yn[yp] = '\0';
+        for (int i = 0; yn[i]; i++) {
+            if (yn[i] >= 'a' && yn[i] <= 'z') yn[i] -= 32;
+        }
+        if (strcmp(yn, "YES") != 0) {
+            print_err("E92FULLREAD aborted (variant not classified)");
+            return;
+        }
+    }
+    /* EARLY uses algo 513, LATE uses algo 146 — both wired in do_security_access. */
+
     /* 3. OSID (best-effort; fall back to "E92" if the bootloader is still
      *    in control and rejects both $09 04 and $1A B4). */
     char osid[20] = "E92";
@@ -1464,9 +1920,13 @@ static void cmd_e92_fullread(void)
     if (osid[0] == '\0') snprintf(osid, sizeof(osid), "E92");
 
     /* 4. Build the filename and stash it for cmd_kernel_read to use.
-     *    Drops into /Read/ alongside HSREAD/BAMREAD outputs. */
-    if (g_sd_ok) {
-        (void)g_sd.mkdir("/Read");
+     *    Drops into /Read/ alongside HSREAD/BAMREAD outputs. mkdir is a
+     *    no-op if the dir exists; only warn on a real failure
+     *    (write-protect, full card, FS error). */
+    if (g_sd_ok && !g_sd.exists("/Read")) {
+        if (!g_sd.mkdir("/Read")) {
+            Serial.println("WARN: /Read/ create failed (write-protect or full?) — file save will fail");
+        }
     }
     char ts[20];
     format_timestamp(ts, sizeof(ts));
@@ -1515,6 +1975,834 @@ static void cmd_e92_fullread(void)
     print_err("E92FULLREAD unavailable — rebuild with Kernel header");
 }
 #endif /* KERNEL_E92_AVAILABLE */
+
+/* ============================================================
+ * cmd_t42_read — T42 TCM (MC68377) 1 MB read via Flashy clean-room kernel
+ *
+ * MVP: auth + upload + ping. Proves the kernel boots and responds.
+ * Flash read loop is a follow-up once this lands on bench.
+ *
+ * Sequence (mirrors a captured commercial-tool T42 flow):
+ *   1. ALGO T42      — sets IDs 0x7E2/0x7EA + algo 371
+ *   2. $27 01/02     — 2-byte seed-key auth
+ *   3. $34 00 FF 90 00           — RequestDownload to 0xFF9000
+ *   4. $36 80 FF 90 00 <kernel>  — TransferData (1012 bytes kernel payload)
+ *   5. Optional $37  — TransferExit (some bootloaders need this to jump)
+ *   6. Wait ~500 ms  — kernel boot
+ *   7. $1A 55        — FLASHY ping; expect $5A 55 F L A S H
+ * ============================================================ */
+#if KERNEL_T42_AVAILABLE
+/* T42READ variant dispatcher. Accepts an optional letter arg A-E so the
+ * bench operator can rapidly A/B-test hypotheses without a firmware rebuild.
+ * All variants share the same kernel binary (KERNEL_T42_KERNEL[]). Only
+ * host-side protocol flow differs.
+ *
+ * Variants:
+ *   A (default): patches 1+2 — $3E-after-$36 + $1A BB probe. Baseline.
+ *   B:           A + full programming-mode sequence ($10 02 + $A2)
+ *   C:           A + sustained 100 ms $3E heartbeat from $A5 03 onward
+ *   D:           A + probe fan-out ($1A BB, $1A 21, $1A 55, $35, $3E)
+ *   E:           A + extended kernel boot delay (2000 ms vs 500 ms)
+ */
+static void t42_send_3e_bc(void)
+{
+    uint8_t tp[8] = { 0xFE, 0x01, 0x3E, 0x00, 0, 0, 0, 0 };
+    can_send(0x101, tp, 8);
+}
+
+static void cmd_t42_read(const char *arg)
+{
+    char variant = 'A';
+    if (arg && arg[0]) {
+        char c = arg[0];
+        if (c >= 'a' && c <= 'e') c = (char)(c - 'a' + 'A');
+        if (c >= 'A' && c <= 'E') variant = c;
+    }
+
+    if (!g_can_initialized) { print_err("not initialized — INIT first"); return; }
+
+    Serial.print("T42READ: variant ");
+    Serial.print(variant);
+    Serial.println(" — auth + kernel upload + FLASHY ping");
+    switch (variant) {
+        case 'A': Serial.println("  (baseline: patches 1+2)"); break;
+        case 'B': Serial.println("  (+ full prog-mode sequence: $10 02, $A2)"); break;
+        case 'C': Serial.println("  (+ sustained 100 ms $3E heartbeat from $A5 03)"); break;
+        case 'D': Serial.println("  (+ probe fan-out: BB, 21, 55, $35, $3E)"); break;
+        case 'E': Serial.println("  (+ 2000 ms kernel boot delay vs default 500)"); break;
+    }
+    /* Pick kernel from registry: KUSE selection takes priority, else first
+     * public T42 entry. Fall back to legacy KERNEL_T42_KERNEL if registry
+     * is empty for some reason (shouldn't happen in practice). */
+    const kernel_entry_t *kern = kernel_selected();
+    if (!kern || strcmp(kern->target, "T42") != 0) {
+        kern = kernel_find_default("T42");
+    }
+    if (kern) {
+        Serial.print("T42READ: kernel=");
+        Serial.print(kern->id);
+        Serial.print(" (");
+        Serial.print(kern->display_name ? kern->display_name : "");
+        Serial.print(", ");
+        Serial.print(kern->src == KERNEL_SRC_PRIVATE ? "private" : "public");
+        Serial.println(")");
+    } else {
+        Serial.println("T42READ: (no registry kernel; using legacy hardcoded)");
+    }
+
+    /* Force T42 IDs + algo. cmd_algo re-inits ISO-TP link if IDs change. */
+    cmd_algo("t42");
+
+    /* $1A B4 cal-ID read — GM T42 bootloader handshake. Captured
+     * commercial flash tools send this (or similar $1A queries) before
+     * $27 on every successful capture. */
+    Serial.println("T42READ: $1A B4 handshake");
+    {
+        uds_msg_t probe_resp;
+        uint8_t p[2] = { 0x1A, 0xB4 };
+        int r = uds_request(&g_isotp_link, p, 2, &probe_resp, 1500);
+        if (r == UDS_OK) {
+            Serial.print("  cal-ID probe OK, data_len=");
+            Serial.println(probe_resp.data_len);
+        } else {
+            Serial.print("  cal-ID probe ret="); Serial.println(r);
+            Serial.println("  (continuing; some bench states reject this)");
+        }
+    }
+
+    /* Variant B: full programming-mode sequence (captured commercial-tool style).
+     * Sends $10 02 DiagSession and $A2 ProgrammingMode BEFORE $27 01,
+     * in addition to the standard $28/$A5 01/$A5 03. Matches captured
+     * order from one family of commercial tools; another family (and
+     * Flashy default) skips these. */
+    if (variant == 'B') {
+        Serial.println("T42READ: [B] $10 02 programmingSession (0x101 broadcast)");
+        {
+            uint8_t b[8] = { 0xFE, 0x02, 0x10, 0x02, 0, 0, 0, 0 };
+            can_send(0x101, b, 8);
+        }
+        delay(130);
+    }
+
+    /* $28 00 disableNormalCommunication — broadcast on 0x101.
+     * Silences normal-mode chatter from all modules so diag traffic
+     * has the bus. REQUIRED before $34 on GM bootloaders (NRC 0x22
+     * observed on T42 when skipped). */
+    Serial.println("T42READ: $28 disableNormalCommunication (0x101 broadcast)");
+    {
+        uint8_t b[8] = { 0xFE, 0x01, 0x28, 0x00, 0, 0, 0, 0 };
+        can_send(0x101, b, 8);
+    }
+    delay(50);
+
+    /* Variant B: $A2 ProgrammingMode request between $28 and $27 */
+    if (variant == 'B') {
+        Serial.println("T42READ: [B] $A2 ProgrammingMode request (0x101 broadcast)");
+        {
+            uint8_t b[8] = { 0xFE, 0x01, 0xA2, 0x00, 0, 0, 0, 0 };
+            can_send(0x101, b, 8);
+        }
+        delay(100);
+    }
+
+    /* $27 Security Access (2-byte seed, algo 371) */
+    Serial.println("T42READ: $27 SecurityAccess");
+    led_auth();
+    if (!do_security_access()) {
+        led_error();
+        print_err("T42READ: security access denied");
+        return;
+    }
+
+    /* $A5 01 requestProgrammingMode — broadcast on 0x101.
+     * Captured commercial tools send this ~7 ms after $27 02 unlock response. */
+    Serial.println("T42READ: $A5 01 requestProgrammingMode (0x101 broadcast)");
+    {
+        uint8_t b[8] = { 0xFE, 0x02, 0xA5, 0x01, 0, 0, 0, 0 };
+        can_send(0x101, b, 8);
+    }
+    delay(280);   /* Captured timing: ~280 ms between $A5 01 and $A5 03 */
+
+    /* $A5 03 enableProgrammingMode — broadcast on 0x101.
+     * After this the module is primed to accept $34. */
+    Serial.println("T42READ: $A5 03 enableProgrammingMode (0x101 broadcast)");
+    {
+        uint8_t b[8] = { 0xFE, 0x02, 0xA5, 0x03, 0, 0, 0, 0 };
+        can_send(0x101, b, 8);
+    }
+
+    /* Variant C: sustained 100 ms $3E heartbeat from $A5 03 through $34.
+     * Target: ~230 ms gap from $A5 03 → $34 = 2 heartbeats. */
+    if (variant == 'C') {
+        Serial.println("T42READ: [C] sustained 100 ms $3E heartbeat (pre-$34)");
+        for (int i = 0; i < 2; i++) {
+            delay(100);
+            t42_send_3e_bc();
+        }
+        delay(30);
+    } else {
+        delay(230);   /* Captured timing: ~230 ms between $A5 03 and $34 */
+    }
+
+    /* Resolve kernel blob/size/addr from registry entry (or legacy fallback). */
+    const uint8_t *use_blob = kern ? kern->blob       : KERNEL_T42_KERNEL;
+    uint32_t       use_size = kern ? kern->blob_size  : (uint32_t)KERNEL_T42_KERNEL_SIZE;
+    uint32_t       use_addr = kern ? kern->load_addr  : 0x00FF8B40u;
+
+    /* $34 00 <size3> — 3-byte SIZE format (confirmed working on T42). */
+    Serial.print("T42READ: $34 RequestDownload SIZE=");
+    Serial.println(use_size);
+    uds_msg_t resp;
+    {
+        uint32_t sz = use_size;
+        uint8_t rd_req[5] = {
+            0x34, 0x00,
+            (uint8_t)(sz >> 16),
+            (uint8_t)(sz >> 8),
+            (uint8_t)(sz)
+        };
+        int ret = uds_request(&g_isotp_link, rd_req, sizeof(rd_req), &resp,
+                              UDS_PENDING_TIMEOUT_MS);
+        if (ret != UDS_OK) {
+            led_error();
+            Serial.print("ERR: $34 failed ret="); Serial.println(ret);
+            if (ret == UDS_ERR_NEGATIVE) {
+                Serial.print("  NRC=0x"); Serial.println(resp.nrc, HEX);
+            }
+            return;
+        }
+        Serial.println("  $34 accepted");
+    }
+
+    /* $36 80 <addr4> <kernel> — TransferData. addr4 from registry entry. */
+    Serial.print("T42READ: $36 TransferData to 0x");
+    Serial.print(use_addr, HEX);
+    Serial.print(", size=");
+    Serial.print(use_size); Serial.println(" bytes");
+    {
+        /* ISO-TP caps a single multi-frame payload at 4095 bytes, so the
+         * kernel + 6-byte $36 header must fit that. Static buffer sized
+         * to that upper bound. */
+        static uint8_t td_buf[6 + 4089];
+        if (use_size > 4089) {
+            Serial.print("ERR: kernel too big for ISO-TP MF ("); Serial.print(use_size);
+            Serial.println(" > 4089 bytes)");
+            led_error();
+            return;
+        }
+        td_buf[0] = 0x36;
+        td_buf[1] = 0x80;
+        td_buf[2] = (uint8_t)((use_addr >> 24) & 0xFF);
+        td_buf[3] = (uint8_t)((use_addr >> 16) & 0xFF);
+        td_buf[4] = (uint8_t)((use_addr >>  8) & 0xFF);
+        td_buf[5] = (uint8_t)( use_addr        & 0xFF);
+        memcpy(&td_buf[6], use_blob, use_size);
+        uint16_t td_len = (uint16_t)(6 + use_size);
+        /* Short timeout — GM bootloaders often JUMP to the loaded code on
+         * $36 completion without sending a $76 ACK (same pattern as E92's
+         * $36 80 downloadAndExecute). A timeout here isn't fatal; we'll
+         * proceed and probe for kernel aliveness via $1A 55 ping. */
+        int ret = uds_request(&g_isotp_link, td_buf, td_len, &resp, 2000);
+        if (ret == UDS_OK) {
+            Serial.println("  $36 accepted (got $76 ACK)");
+        } else if (ret == UDS_ERR_NEGATIVE) {
+            led_error();
+            Serial.print("ERR: $36 got NRC=0x"); Serial.println(resp.nrc, HEX);
+            return;
+        } else {
+            Serial.print("  $36 no-ACK (ret="); Serial.print(ret);
+            Serial.println(") — assuming bootloader jumped to kernel");
+        }
+    }
+
+    /* $37 TransferExit REMOVED in Day3-40.
+     * The T42 bootloader doesn't support $37 (always NRC 0x11). Sending
+     * it after $36 may interrupt the pending auto-jump. The captured
+     * commercial flow skips $37 and the kernel boots fine. Matching
+     * that flow here. */
+
+    /* Post-$36 TesterPresent broadcast — the timing-map agent flagged
+     * this as a concrete differentiator: captured commercial tools
+     * emit EXACTLY ONE $3E broadcast in the 1-second window after the
+     * last $36 CF lands. Flashy emits zero. This may be what the
+     * bootloader or kernel expects immediately after the jump. One
+     * shot on 0x101 right after upload, before the probe. */
+    if (_eff_send_3e()) {
+        Serial.println("T42READ: $3E TesterPresent (0x101 broadcast, post-upload)");
+        t42_send_3e_bc();
+    } else {
+        Serial.println("T42READ: $3E post-upload suppressed by SET SEND_3E_AFTER 0");
+    }
+
+    /* Variant C: sustained 100 ms $3E heartbeat during kernel-boot window.
+     * ~10 more heartbeats across the boot delay window. */
+    if (variant == 'C') {
+        Serial.println("T42READ: [C] sustained 100 ms $3E heartbeat during boot (500 ms window)");
+        for (int i = 0; i < 5; i++) {
+            delay(100);
+            t42_send_3e_bc();
+        }
+    } else if (variant == 'E') {
+        /* Variant E: extended 2000 ms kernel boot delay (default 500).
+         * Hypothesis: kernel's init takes longer than 500 ms and we
+         * probe too early. Give it 4x more time. */
+        Serial.println("T42READ: [E] extended 2000 ms kernel boot delay");
+        delay(2000);
+    } else {
+        /* Default A/B/D: use effective boot delay (kernel meta or SET override).
+         * If CADENCE_3E_MS is set, break the delay into $3E-heartbeat slices. */
+        uint16_t boot_ms = _eff_boot_delay(kern);
+        uint16_t cad = g_params.cadence_3e_ms;
+        Serial.print("T42READ: waiting "); Serial.print(boot_ms);
+        Serial.print(" ms for kernel boot");
+        if (cad > 0) { Serial.print(" (cadence $3E every "); Serial.print(cad); Serial.print(" ms)"); }
+        Serial.println();
+        if (cad > 0 && cad < boot_ms) {
+            uint16_t elapsed = 0;
+            while (elapsed < boot_ms) {
+                uint16_t step = (uint16_t)((boot_ms - elapsed) < cad ? (boot_ms - elapsed) : cad);
+                delay(step);
+                elapsed = (uint16_t)(elapsed + step);
+                t42_send_3e_bc();
+            }
+        } else {
+            delay(boot_ms);
+        }
+    }
+
+    /* Kernel probe — variant-specific */
+    if (variant == 'D') {
+        /* Variant D: probe fan-out. Try five probes 300 ms apart,
+         * log which one (if any) gets a response. */
+        Serial.println("T42READ: [D] probe fan-out — 5 subfunctions, 300 ms apart");
+        /* Covers commercial-tool / custom protocols we might not know about. */
+        struct { const char *name; uint8_t req[8]; uint8_t len; } probes[] = {
+            { "$1A BB",          { 0x1A, 0xBB, 0, 0, 0, 0, 0, 0 }, 2 },
+            { "$1A 21",          { 0x1A, 0x21, 0, 0, 0, 0, 0, 0 }, 2 },
+            { "$1A 55",          { 0x1A, 0x55, 0, 0, 0, 0, 0, 0 }, 2 },
+            { "$35 01 00 00 00", { 0x35, 0x01, 0x00, 0x00, 0x00, 0, 0, 0 }, 5 },
+            { "$3E",             { 0x3E, 0, 0, 0, 0, 0, 0, 0 }, 1 },
+        };
+        bool got_any = false;
+        for (unsigned p = 0; p < sizeof(probes)/sizeof(probes[0]); p++) {
+            Serial.print("  probing "); Serial.print(probes[p].name); Serial.print(" ... ");
+            int ret = uds_request(&g_isotp_link, probes[p].req, probes[p].len,
+                                  &resp, 300);
+            if (ret == UDS_OK) {
+                Serial.print("GOT RESPONSE: svc=0x"); Serial.print(resp.service, HEX);
+                Serial.print(" sub=0x"); Serial.println(resp.sub_function, HEX);
+                got_any = true;
+            } else {
+                Serial.print("no reply (ret="); Serial.print(ret);
+                if (ret == UDS_ERR_NEGATIVE) {
+                    Serial.print(" NRC=0x"); Serial.print(resp.nrc, HEX);
+                }
+                Serial.println(")");
+            }
+            delay(50);
+        }
+        if (got_any) {
+            led_connected();
+            Serial.println("=== T42 KERNEL ALIVE — one of the probes got a reply ===");
+            Serial.println("T42READ: power-cycle to restore OS");
+        } else {
+            led_error();
+            Serial.println("T42READ: [D] all 5 probes silent — kernel not responding");
+        }
+        return;
+    }
+
+    /* Variants A/B/C/E: single probe using effective svc/pid.
+     * If PROBE_SVC is 0 (either via kernel meta with probe.service=null, or
+     * SET PROBE_SVC 0 override), skip the probe entirely — upload succeeded,
+     * proof-of-life must come from an external capture. This lets reference
+     * kernels that don't implement our FLSHY handshake still be bench-tested. */
+    uint8_t probe_svc = _eff_probe_svc(kern);
+    uint8_t probe_pid = _eff_probe_pid(kern);
+    if (probe_svc == 0) {
+        led_connected();
+        Serial.println("T42READ: probe suppressed (PROBE_SVC=0) — upload complete, no handshake attempted");
+        Serial.println("T42READ: verify kernel-alive externally (SavvyCAN), then power-cycle to restore OS");
+        return;
+    }
+
+    Serial.print("T42READ: $");
+    if (probe_svc < 0x10) Serial.print('0');
+    Serial.print(probe_svc, HEX);
+    Serial.print(' ');
+    if (probe_pid < 0x10) Serial.print('0');
+    Serial.print(probe_pid, HEX);
+    Serial.println(" kernel probe");
+    {
+        uint8_t ping_req[2] = { probe_svc, probe_pid };
+        int ret = uds_request(&g_isotp_link, ping_req, sizeof(ping_req), &resp,
+                              2000);
+        if (ret != UDS_OK) {
+            led_error();
+            Serial.print("ERR: probe no response ret="); Serial.println(ret);
+            if (ret == UDS_ERR_NEGATIVE) {
+                Serial.print("  NRC=0x"); Serial.println(resp.nrc, HEX);
+            }
+            Serial.println("T42READ: kernel did not respond. Possible causes:");
+            Serial.println("  - wrong probe svc/pid for this kernel");
+            Serial.println("    (try SET PROBE_SVC 0 to skip and verify via SavvyCAN)");
+            Serial.println("  - load_addr wrong for this kernel variant");
+            Serial.println("  - boot delay too short (try SET BOOT_DELAY_MS 2000)");
+            Serial.println("  (power-cycle TCM to restore OS)");
+            return;
+        }
+
+        /* resp.service = probe_svc|0x40, resp.sub_function = (echo), data = payload */
+        Serial.print("  resp: svc=0x"); Serial.print(resp.service, HEX);
+        Serial.print(" sub=0x"); Serial.print(resp.sub_function, HEX);
+        Serial.print(" data=");
+        for (uint16_t i = 0; i < resp.data_len && i < 8; i++) {
+            if (resp.data[i] >= ' ' && resp.data[i] <= '~') {
+                Serial.print((char)resp.data[i]);
+            } else {
+                if (resp.data[i] < 0x10) Serial.print('0');
+                Serial.print(resp.data[i], HEX);
+            }
+            Serial.print(' ');
+        }
+        Serial.println();
+
+        /* Any positive (svc|0x40) response = kernel alive. Signature check
+         * comes from kernel meta (expected_sig); default clean-room kernel
+         * uses "FLSHY". If meta has no sig, any positive response counts. */
+        if (resp.service == (uint8_t)(probe_svc | 0x40)) {
+            led_connected();
+            Serial.println("=== T42 KERNEL ALIVE — positive response ===");
+            const char *expect = kern ? kern->expected_sig : nullptr;
+            if (expect && *expect) {
+                size_t elen = strlen(expect);
+                bool match = (resp.data_len >= elen);
+                for (size_t i = 0; match && i < elen; i++) {
+                    if ((char)resp.data[i] != expect[i]) match = false;
+                }
+                if (match) {
+                    Serial.print("  signature confirmed: "); Serial.println(expect);
+                } else {
+                    Serial.print("  (signature '"); Serial.print(expect);
+                    Serial.println("' not matched — inspect bytes above)");
+                }
+            } else {
+                Serial.println("  (no expected_sig in kernel meta — inspect bytes above)");
+            }
+            Serial.println("T42READ MVP complete. Starting sequential flash dump:");
+
+            /* === INLINE FLASH DUMP via repeat probes === */
+            for (uint32_t k = 0; k < 20; k++) {
+                uint8_t probe2[2] = { probe_svc, probe_pid };
+                uds_msg_t resp2;
+                int ret = uds_request(&g_isotp_link, probe2, 2, &resp2, 2000);
+                if (ret != UDS_OK) {
+                    Serial.print("  dump probe "); Serial.print(k);
+                    Serial.print(" failed ret="); Serial.println(ret);
+                    break;
+                }
+                Serial.print("  [0x");
+                Serial.print(k * 5, HEX); Serial.print("]:");
+                for (uint8_t j = 0; j < 5 && j < resp2.data_len; j++) {
+                    Serial.print(' ');
+                    if (resp2.data[j] < 0x10) Serial.print('0');
+                    Serial.print(resp2.data[j], HEX);
+                }
+                Serial.println();
+                delay(20);
+            }
+
+            Serial.println("T42READ: TCM currently running kernel — power-cycle to restore OS");
+        } else {
+            Serial.println("T42READ: unexpected response service");
+        }
+    }
+}
+#else
+static void cmd_t42_read(const char * /*arg*/)
+{
+    print_err("T42READ unavailable — kernel_t42_private.h not present");
+}
+#endif /* KERNEL_T42_AVAILABLE */
+
+/* === T42RA_READ — dump memory/flash via ref_a kernel's $A0 opcode ========
+ * Kernel must already be running (run `KUSE t42_ref_a` + `T42READ A` first —
+ * ref_a's auto-jump leaves the kernel resident). This command never uploads;
+ * it only drives the running kernel.
+ *
+ * Wire protocol (bench-decoded 2026-04-24, see memory/t42_ref_a_protocol.md):
+ *   TX (0x7E2, raw 8B, NO ISO-TP wrap):
+ *     A0 00 <addr:4 big-endian> <size:2 big-endian>
+ *   RX (0x7EA, raw 8B frames, NO ISO-TP PCI):
+ *     ceil(size/8) frames, 8 bytes of memory each.
+ *
+ * Usage: T42RA_READ [start_hex [size_hex]]   defaults 0x00000000 0x100 (256 B)
+ */
+static int t42ra_recv_frame(uint8_t *out, uint32_t timeout_ms)
+{
+    /* Same idea as extkern_recv_any but with NO broadcast-TP side effects —
+     * the reference (extracted) kernel re-TXs its ASCII tag on any 0x101
+     * activity, which pollutes the bus during a read. Pure passive RX,
+     * filter to g_ecu_id. */
+    uint32_t deadline = millis() + timeout_ms;
+    while ((int32_t)(millis() - deadline) < 0) {
+        uint32_t rx_id;
+        uint8_t  rx_data[8];
+        uint8_t  rx_len;
+        if (can_receive(&rx_id, rx_data, &rx_len) == 0) {
+            if (rx_id == g_ecu_id) {
+                memcpy(out, rx_data, rx_len);
+                return rx_len;
+            }
+            /* ignore non-ECU bus chatter */
+        }
+    }
+    return -1;
+}
+
+static void cmd_t42_ra_read(const char *arg)
+{
+    if (!g_can_initialized) { print_err("not initialized"); return; }
+
+    uint32_t start = 0x00000000;
+    uint32_t size  = 0x00000100;   /* 256 bytes default */
+    if (arg && *arg) {
+        const char *p = arg;
+        start = (uint32_t)strtoul(p, (char**)&p, 16);
+        while (*p == ' ') p++;
+        if (*p) size = (uint32_t)strtoul(p, NULL, 16);
+    }
+    /* Cap to 16 MB to avoid runaway args. T42 flash is 1 MB; this is
+     * defensive, not a hard spec. */
+    if (size > 0x01000000) size = 0x01000000;
+
+    const uint32_t CHUNK = 256;   /* bytes per $A0 call — kernel accepts
+                                     larger, but 256 keeps error recovery
+                                     granular and fits the 16-bit size field */
+
+    Serial.print("T42RA_READ: start=0x");
+    Serial.print(start, HEX);
+    Serial.print(" size=0x");
+    Serial.print(size, HEX);
+    Serial.print(" (");
+    Serial.print(size); Serial.println(" bytes)");
+    Serial.print("T42RA_READ: tester=0x"); Serial.print(g_tester_id, HEX);
+    Serial.print(" ecu=0x"); Serial.println(g_ecu_id, HEX);
+
+    /* Open SD output file under /Read/. Name encodes addr + size + timestamp.
+     * mkdir is a no-op if the dir exists; only warn on a real failure. */
+    char fname[80];
+    fname[0] = '\0';
+    File sd_file;
+    bool sd_open = false;
+    if (g_sd_ok) {
+        if (!g_sd.exists("/Read") && !g_sd.mkdir("/Read")) {
+            Serial.println("WARN: /Read/ create failed (write-protect or full?) — file save will fail");
+        }
+        char ts[20];
+        format_timestamp(ts, sizeof(ts));
+        snprintf(fname, sizeof(fname),
+                 "/Read/T42RA_%08lX_%06lX_%s.bin",
+                 (unsigned long)start, (unsigned long)size, ts);
+        sd_file = g_sd.open(fname, O_WRITE | O_CREAT | O_TRUNC);
+        if (sd_file) {
+            sd_open = true;
+            Serial.print("T42RA_READ: SD out = "); Serial.println(fname);
+        } else {
+            Serial.println("T42RA_READ: warn — SD open failed; Serial-only");
+        }
+    }
+
+    g_reading_active = true;
+    led_reading();
+    uint32_t done = 0;
+    uint32_t start_ms = millis();
+    bool aborted = false;
+
+    while (done < size) {
+        uint32_t chunk = (size - done < CHUNK) ? (size - done) : CHUNK;
+        uint32_t addr  = start + done;
+
+        /* Build raw 8-byte $A0 request */
+        uint8_t req[8];
+        req[0] = 0xA0;
+        req[1] = 0x00;
+        req[2] = (uint8_t)(addr >> 24);
+        req[3] = (uint8_t)(addr >> 16);
+        req[4] = (uint8_t)(addr >>  8);
+        req[5] = (uint8_t)(addr      );
+        req[6] = (uint8_t)(chunk >> 8);
+        req[7] = (uint8_t)(chunk     );
+
+        /* Clear stale inbound frames (heartbeat/broadcast etc.) */
+        extkern_drain_rx();
+
+        if (can_send(g_tester_id, req, 8) != 0) {
+            Serial.println("T42RA_READ: can_send failed");
+            led_error();
+            aborted = true;
+            break;
+        }
+
+        /* Drain ceil(chunk/8) inbound frames */
+        uint32_t frames_needed = (chunk + 7) / 8;
+        uint8_t  chunk_buf[260]; /* 256 + slack */
+        uint32_t received = 0;
+        for (uint32_t f = 0; f < frames_needed; f++) {
+            uint8_t rx[8];
+            int rlen = t42ra_recv_frame(rx, 1500);
+            if (rlen <= 0) {
+                Serial.print("T42RA_READ: RX timeout at 0x");
+                Serial.print(addr + received, HEX);
+                Serial.print(" (got "); Serial.print(f);
+                Serial.print("/"); Serial.print(frames_needed);
+                Serial.println(" frames)");
+                led_error();
+                aborted = true;
+                break;
+            }
+            uint32_t copy = (uint32_t)rlen;
+            if (received + copy > chunk) copy = chunk - received;
+            memcpy(chunk_buf + received, rx, copy);
+            received += copy;
+        }
+        if (aborted) break;
+
+        /* First-chunk visual check on Serial */
+        if (done == 0) {
+            Serial.print("T42RA_READ: first 16B @0x");
+            Serial.print(addr, HEX); Serial.print(":");
+            for (uint32_t i = 0; i < received && i < 16; i++) {
+                Serial.print(' ');
+                if (chunk_buf[i] < 0x10) Serial.print('0');
+                Serial.print(chunk_buf[i], HEX);
+            }
+            Serial.println();
+        }
+
+        if (sd_open) {
+            sd_file.write(chunk_buf, received);
+        }
+
+        done += received;
+
+        /* Progress every 4 KB */
+        if ((done & 0xFFF) == 0 || done == size) {
+            uint32_t elapsed = millis() - start_ms;
+            uint32_t bps = (elapsed > 0) ? (done * 1000UL / elapsed) : 0;
+            Serial.print("T42RA_READ:PROGRESS ");
+            Serial.print(done); Serial.print("/"); Serial.print(size);
+            Serial.print(" B  "); Serial.print(bps); Serial.println(" B/s");
+        }
+    }
+
+    if (sd_open) sd_file.close();
+    g_reading_active = false;
+
+    uint32_t total_ms = millis() - start_ms;
+    Serial.print("T42RA_READ: ");
+    Serial.print(aborted ? "ABORTED" : "done");
+    Serial.print(" — "); Serial.print(done);
+    Serial.print(" bytes in "); Serial.print(total_ms);
+    Serial.print(" ms");
+    if (total_ms > 0) {
+        Serial.print("  ("); Serial.print(done * 1000UL / total_ms);
+        Serial.print(" B/s)");
+    }
+    Serial.println();
+    if (sd_open && done > 0) {
+        Serial.print("T42RA_READ: file saved: "); Serial.println(fname);
+    }
+    if (aborted) { print_err("T42RA_READ failed"); }
+    else         { led_connected(); print_ok(); }
+}
+
+/* === T42DUMP — loop $1A BB probes, collect 5 flash bytes per response ===
+ * Kernel tracks read_addr and returns next 5 bytes on each probe. We send
+ * N probes and log bytes to serial + save to SD (if filename given).
+ *
+ * Usage: T42DUMP [count]   (default 100 probes = 500 bytes)
+ */
+static void cmd_t42_dump(const char *arg)
+{
+    if (!g_can_initialized) { print_err("not initialized"); return; }
+
+    uint32_t count = 100;
+    if (arg && *arg) {
+        count = strtoul(arg, nullptr, 0);
+        if (count == 0) count = 100;
+        if (count > 200000) count = 200000;
+    }
+
+    Serial.print("T42DUMP: sending ");
+    Serial.print(count); Serial.println(" probes, 5 bytes each");
+
+    uint32_t got = 0;
+    uds_msg_t resp;
+    for (uint32_t i = 0; i < count; i++) {
+        uint8_t probe[2] = { 0x1A, 0xBB };
+        int ret = uds_request(&g_isotp_link, probe, 2, &resp, 2000);
+        if (ret != UDS_OK) {
+            Serial.print("  probe "); Serial.print(i);
+            Serial.print(" failed ret="); Serial.println(ret);
+            break;
+        }
+        /* uds_msg_t stores payload AFTER SID+sub in data[], length in data_len.
+         * So for reply `07 5A BB X Y Z W V`: service=5A, sub_function=BB,
+         * data=[X,Y,Z,W,V], data_len=5 */
+        if (resp.data_len < 5) continue;
+        Serial.print("  [0x");
+        Serial.print(i * 5, HEX); Serial.print("]: ");
+        for (int k = 0; k < 5; k++) {
+            if (resp.data[k] < 0x10) Serial.print("0");
+            Serial.print(resp.data[k], HEX); Serial.print(" ");
+        }
+        Serial.println();
+        got += 5;
+        if ((i & 0x3) == 0) delay(10);  /* slow down a touch */
+    }
+    Serial.print("T42DUMP: collected ");
+    Serial.print(got); Serial.println(" bytes");
+}
+
+/* === T42USB — Upload an extracted commercial-tool kernel using its protocol ===
+ * Reference test: if the extracted kernel responds to its $87 / ASCII-tag
+ * probe when uploaded via Flashy, our auth/upload pipeline is correct and
+ * the only bug is in our clean-room kernel's TouCAN init.
+ *
+ * Captured commercial-tool flow (2026-04-24, Test-Day3 capture):
+ *   1. $28 broadcast (disableNormalComm)
+ *   2. $A2 broadcast (ProgrammingMode) — positive $E2 00
+ *   3. $A5 01 broadcast
+ *   4. $A5 03 broadcast
+ *   5. $3E $3E heartbeats
+ *   6. $34 00 <size4=0x5AC>      (size, not addr)
+ *   7. $36 80 <addr4=0xFF8B40> <kernel data>
+ *   8. Kernel auto-boots, emits ASCII tag at 0x7EA
+ *   9. NO $37, NO $27 auth
+ *
+ * The extracted-kernel header is user-supplied and gitignored. When the
+ * header is absent the command is omitted from the build. */
+#if __has_include("kernel_t42_usbjtag.h")
+#include "kernel_t42_usbjtag.h"
+#define KERNEL_T42_USBJTAG_AVAILABLE 1
+#else
+#define KERNEL_T42_USBJTAG_AVAILABLE 0
+#endif
+
+#if KERNEL_T42_USBJTAG_AVAILABLE
+static void cmd_t42_usb(const char * /*arg*/)
+{
+    if (!g_can_initialized) { print_err("not initialized"); return; }
+
+    led_writing();
+    uds_msg_t resp;
+    int ret;
+
+    Serial.println("T42USB: uploading extracted commercial-tool kernel via its protocol");
+    Serial.print("  Kernel size = ");
+    Serial.print(KERNEL_T42_USBJTAG_SIZE);
+    Serial.println(" bytes, load = 0xFF8B40");
+
+    /* Step 1: $28 disableNormalCommunication broadcast */
+    Serial.println("T42USB: $28 broadcast");
+    { uint8_t b[8] = { 0xFE, 0x01, 0x28, 0, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+    delay(100);
+
+    /* Step 2: $A2 ProgrammingMode broadcast (captured tool sends this) */
+    Serial.println("T42USB: $A2 broadcast (ProgrammingMode)");
+    { uint8_t b[8] = { 0xFE, 0x01, 0xA2, 0, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+    delay(100);
+
+    /* $27 Security Access (Flashy needs it; captured trace was mid-session) */
+    Serial.println("T42USB: $27 SecurityAccess");
+    led_auth();
+    if (!do_security_access()) {
+        led_error();
+        Serial.println("T42USB: security access denied");
+        return;
+    }
+    led_writing();
+
+    /* Step 3-4: $A5 01 + $A5 03 */
+    Serial.println("T42USB: $A5 01 broadcast");
+    { uint8_t b[8] = { 0xFE, 0x02, 0xA5, 0x01, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+    delay(280);
+    Serial.println("T42USB: $A5 03 broadcast");
+    { uint8_t b[8] = { 0xFE, 0x02, 0xA5, 0x03, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+    delay(100);
+
+    /* Step 5: $3E heartbeats */
+    Serial.println("T42USB: $3E x2");
+    { uint8_t b[8] = { 0xFE, 0x01, 0x3E, 0, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+    delay(100);
+    { uint8_t b[8] = { 0xFE, 0x01, 0x3E, 0, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+    delay(100);
+
+    /* Step 6: $34 with 3-byte SIZE — captured format: 34 00 <sz3>
+     * Trace: 05 34 00 00 05 AC (ISO-TP SF len=5, 5-byte payload) */
+    Serial.println("T42USB: $34 RequestDownload (3-byte SIZE format)");
+    {
+        uint32_t sz = KERNEL_T42_USBJTAG_SIZE;
+        uint8_t rd[5] = {
+            0x34, 0x00,
+            (uint8_t)(sz >> 16),
+            (uint8_t)(sz >> 8),
+            (uint8_t)(sz)
+        };
+        ret = uds_request(&g_isotp_link, rd, 5, &resp, 3000);
+        if (ret == UDS_OK)          Serial.println("  $34 accepted");
+        else if (ret == UDS_ERR_NEGATIVE) { Serial.print("  $34 NRC=0x"); Serial.println(resp.nrc, HEX); return; }
+        else                        { Serial.print("  $34 no-ACK ret="); Serial.println(ret); return; }
+    }
+
+    /* Step 7: $36 with ADDRESS (0xFF8B40) + kernel payload */
+    Serial.println("T42USB: $36 TransferData (ADDRESS format, 0xFF8B40)");
+    {
+        static uint8_t td_buf[6 + KERNEL_T42_USBJTAG_SIZE];
+        td_buf[0] = 0x36;
+        td_buf[1] = 0x80;
+        td_buf[2] = 0x00;
+        td_buf[3] = 0xFF;
+        td_buf[4] = 0x8B;
+        td_buf[5] = 0x40;
+        memcpy(&td_buf[6], KERNEL_T42_USBJTAG_KERNEL, KERNEL_T42_USBJTAG_SIZE);
+        uint16_t td_len = (uint16_t)(6 + KERNEL_T42_USBJTAG_SIZE);
+        ret = uds_request(&g_isotp_link, td_buf, td_len, &resp, 3000);
+        if (ret == UDS_OK)          Serial.println("  $36 accepted");
+        else if (ret == UDS_ERR_NEGATIVE) { Serial.print("  $36 NRC=0x"); Serial.println(resp.nrc, HEX); }
+        else                        { Serial.print("  $36 no-ACK ret="); Serial.print(ret); Serial.println(" — expected if auto-jump"); }
+    }
+
+    /* Step 8: Listen for the kernel's ASCII tag on 0x7EA (3s window).
+     * The captured kernel emits a 7-char ASCII signature whose first
+     * letter is 'U'. Match on that prefix only — broad enough to also
+     * catch related variants. */
+    Serial.println("T42USB: listening for ASCII signature (3s)...");
+    uint32_t listen_end = millis() + 3000;
+    bool saw_sig = false;
+    while (millis() < listen_end) {
+        uint32_t rx_id;
+        uint8_t rx_data[8];
+        uint8_t rx_dlc;
+        if (can_receive(&rx_id, rx_data, &rx_dlc) == 0) {
+            if (rx_id == g_ecu_id && rx_dlc == 8) {
+                Serial.print("  RX 0x"); Serial.print(rx_id, HEX); Serial.print(":");
+                for (int i = 0; i < 8; i++) { Serial.print(" "); if (rx_data[i]<0x10) Serial.print("0"); Serial.print(rx_data[i], HEX); }
+                Serial.println();
+                if (rx_data[0]=='U' && rx_data[1]=='S' && rx_data[2]=='B' && rx_data[3]=='J') {
+                    saw_sig = true;
+                    Serial.println("T42USB: extracted kernel ALIVE - pipeline confirmed working");
+                    break;
+                }
+            }
+        }
+    }
+    if (!saw_sig) Serial.println("T42USB: no ASCII signature in window");
+
+    led_idle();
+}
+#endif /* KERNEL_T42_USBJTAG_AVAILABLE */
 
 static void cmd_kernel(const char *arg)
 {
@@ -1941,8 +3229,10 @@ static bool do_security_access(void) {
     }
     Serial.println();
 
-    if (seed_len == 5) {
-        g_t87a_detected = true;  /* 5-byte seed = T87A bootloader */
+    /* 5-byte seed = T87A bootloader — except E92A LATE, which also uses
+     * 5-byte but with algo 146 not 135. Don't flag T87A in that case. */
+    if (seed_len == 5 && g_module != MODULE_E92) {
+        g_t87a_detected = true;
     }
     if (seed_is_all_zero(seed, seed_len)) {
         Serial.println(g_t87a_detected ? "Security: already unlocked (T87A, seed=0)" : "Security: already unlocked (seed=0)");
@@ -1963,9 +3253,17 @@ static bool do_security_access(void) {
         return true;
     }
     if (seed_len == 5) {
-        /* g_t87a_detected already set above */
         uint8_t key5[5];
-        if (!gm5byte_compute_key(seed, key5)) {
+        bool ok;
+        const char *who;
+        if (g_module == MODULE_E92 && g_e92_variant == E92_VARIANT_LATE) {
+            ok  = gm5byte_compute_key_e92a(seed, key5);  /* algo 146 */
+            who = "E92A";
+        } else {
+            ok  = gm5byte_compute_key(seed, key5);       /* algo 135 */
+            who = "T87A";
+        }
+        if (!ok) {
             print_err("5-byte seed out of range");
             return false;
         }
@@ -1977,7 +3275,7 @@ static bool do_security_access(void) {
         Serial.println();
         ret = uds_security_access_key(&g_isotp_link, 0x02, key5, 5);
         if (ret != UDS_OK) { print_err("5-byte key rejected"); return false; }
-        Serial.println("Security unlocked (T87A)");
+        Serial.print("Security unlocked ("); Serial.print(who); Serial.println(")");
         return true;
     }
     print_err("unsupported seed length");
@@ -4483,8 +5781,8 @@ static void cmd_bamread(void)
         strncpy(fname, g_sd_filename, sizeof(fname) - 1);
         fname[sizeof(fname) - 1] = '\0';
     } else {
-        if (g_sd_ok) {
-            (void)g_sd.mkdir("/Read");
+        if (g_sd_ok && !g_sd.exists("/Read") && !g_sd.mkdir("/Read")) {
+            Serial.println("WARN: /Read/ create failed (write-protect or full?) — file save will fail");
         }
         format_timestamp(bamread_ts, sizeof(bamread_ts));
         snprintf(fname, sizeof(fname),
@@ -4782,28 +6080,75 @@ static void cmd_vinwrite(const char *arg)
         return;
     }
 
-    /* GM WriteDataByLocalIdentifier: 3B 90 [17 bytes VIN] */
-    uint8_t req[19];
-    req[0] = 0x3B;   /* WriteDataByLocalIdentifier */
-    req[1] = 0x90;   /* localIdentifier = VIN */
-    memcpy(&req[2], arg, 17);
+    /* E92 short-circuit: bench-verified 2026-04-24 (capture
+     * E92-VIN-Write-Testing2.csv) that VIN on E92 is not live-writable via
+     * $3B 90 or $2E F190 in any session (default/03/02), with or without
+     * AUTH. ECU flow-controls the multi-frame then silently drops. VIN is
+     * stored in the calibration block and must be changed via cal reflash
+     * with the VIN bytes patched into the bin. See memory:e92_variants.md. */
+    if (g_module == MODULE_E92) {
+        Serial.println("VINWRITE not supported on E92:");
+        Serial.println("  VIN lives in the calibration block, not a live-writable DID.");
+        Serial.println("  $3B 90 and $2E F190 are silent-dropped in every session on this OS.");
+        Serial.println("  To change VIN: FULLREAD -> patch VIN bytes in the bin -> FULLWRITE.");
+        print_err("VINWRITE not supported on E92 (requires cal reflash)");
+        return;
+    }
 
     led_vin_write();   /* orange while writing VIN */
     Serial.print("Writing VIN: ");
     Serial.println(arg);
 
+    /* Try GM WriteDataByLocalIdentifier first: $3B 90 [17 bytes VIN].
+     * Works on E38/T87/T87A in the default session. */
+    uint8_t req_gm[19];
+    req_gm[0] = 0x3B;
+    req_gm[1] = 0x90;
+    memcpy(&req_gm[2], arg, 17);
+
     uds_msg_t resp;
-    int ret = uds_request(&g_isotp_link, req, 19, &resp, UDS_PENDING_TIMEOUT_MS);
+    int ret = uds_request(&g_isotp_link, req_gm, sizeof(req_gm), &resp,
+                          UDS_PENDING_TIMEOUT_MS);
     if (ret == UDS_OK) {
-        /* Update cached VIN */
         memcpy(g_vin, arg, 17);
         g_vin[17] = '\0';
-        led_vin_ok();      /* bright green — success */
-        Serial.println("VIN written successfully");
+        led_vin_ok();
+        Serial.println("VIN written successfully ($3B 90)");
         print_ok();
-    } else {
-        led_error();       /* red — failed */
-        print_uds_error(ret, &resp);
+        return;
+    }
+
+    /* $3B 90 failed. Log what happened, then try standard UDS
+     * WriteDataByIdentifier $2E F190 — newer stacks (E92/MPC5674F) often
+     * only accept the DID form and will return an NRC telling us which
+     * gate is blocking (session, security, etc.). */
+    Serial.print("  $3B 90 failed: ");
+    print_uds_error(ret, &resp);
+
+    uint8_t req_uds[20];
+    req_uds[0] = 0x2E;
+    req_uds[1] = 0xF1;
+    req_uds[2] = 0x90;
+    memcpy(&req_uds[3], arg, 17);
+
+    Serial.println("  trying $2E F190 (UDS WriteByIdentifier)...");
+    ret = uds_request(&g_isotp_link, req_uds, sizeof(req_uds), &resp,
+                      UDS_PENDING_TIMEOUT_MS);
+    if (ret == UDS_OK) {
+        memcpy(g_vin, arg, 17);
+        g_vin[17] = '\0';
+        led_vin_ok();
+        Serial.println("VIN written successfully ($2E F190)");
+        print_ok();
+        return;
+    }
+
+    led_error();
+    Serial.print("  $2E F190 failed: ");
+    print_uds_error(ret, &resp);
+    if (ret == UDS_ERR_NEGATIVE) {
+        Serial.print("  hint: NRC 0x"); Serial.print(resp.nrc, HEX);
+        Serial.println(" — may need DIAG 03 (extended session) and/or AUTH (algo 513 for E92)");
     }
 }
 
@@ -4976,8 +6321,8 @@ static void cmd_hsread(const char *arg)
      * Timestamped so successive reads don't overwrite each other.
      * Output lands in /Read/ on the SD card (auto-created if missing), the
      * mirror of the /Write/ source directory. */
-    if (g_sd_ok) {
-        (void)g_sd.mkdir("/Read");   /* no-op if it already exists */
+    if (g_sd_ok && !g_sd.exists("/Read") && !g_sd.mkdir("/Read")) {
+        Serial.println("WARN: /Read/ create failed (write-protect or full?) — file save will fail");
     }
     char ts[20];
     format_timestamp(ts, sizeof(ts));
@@ -5041,7 +6386,7 @@ static void cmd_hsread(const char *arg)
 
 /* ---------- T87A kernel-exit trailer ----------
  *
- * Mined from HPT + NT-Link HS-CAN write captures. After the bulk transfer,
+ * Mined from commercial-tool HS-CAN write captures. After the bulk transfer,
  * the proprietary tools send a series of failing / stop-session frames;
  * the kernel's state machine recognizes "transfer complete" and hands
  * control back to stock TCM OS. Captures show the 0x101 broadcast flips
@@ -5849,8 +7194,8 @@ static void cmd_calread(void)
 
         /* Step 3: Build output filename — /Read/<MODULE>_<OSID>_CALREAD_<ts>.bin
          * Module tag ("T87A"/"T87"/"T93") groups bins by ECU in the file list. */
-        if (g_sd_ok) {
-            (void)g_sd.mkdir("/Read");
+        if (g_sd_ok && !g_sd.exists("/Read") && !g_sd.mkdir("/Read")) {
+            Serial.println("WARN: /Read/ create failed (write-protect or full?) — file save will fail");
         }
         char ts[20];
         format_timestamp(ts, sizeof(ts));
@@ -5979,8 +7324,8 @@ static void cmd_calread(void)
     else           { Serial.println("OSID: (not available)"); }
 
     /* Build output filename — /Read/CALREAD_<vin>_<osid>_<ts>.bin */
-    if (g_sd_ok) {
-        (void)g_sd.mkdir("/Read");
+    if (g_sd_ok && !g_sd.exists("/Read") && !g_sd.mkdir("/Read")) {
+        Serial.println("WARN: /Read/ create failed (write-protect or full?) — file save will fail");
     }
     {
         char ts[20];
@@ -7861,6 +9206,7 @@ static void cmd_kernel_popper(void) {
         if (Serial.available()) {
             char c = (char)Serial.read();
             if (c == '\n' || c == '\r') { if (tpos > 0) break; }
+            else if (c == 0x08 || c == 0x7F) { if (tpos > 0) tpos--; }
             else if (tpos < (int)sizeof(type_buf) - 1) type_buf[tpos++] = c;
         }
     }
@@ -7881,6 +9227,7 @@ static void cmd_kernel_popper(void) {
         if (Serial.available()) {
             char c = (char)Serial.read();
             if (c == '\n' || c == '\r') break;
+            else if (c == 0x08 || c == 0x7F) { if (dpos > 0) dpos--; }
             else if (dpos < (int)sizeof(dur_buf) - 1) dur_buf[dpos++] = c;
         }
     }
@@ -7954,6 +9301,7 @@ static int    g_sd_bin_selected = -1;
 #define CAP_E92_FULLREAD (1 << 10)   /* one-shot Kernel-based E92 read */
 #define CAP_HSREAD       (1 << 11)   /* T87A: HS-CAN fully-unlocked 4 MB read via Rollin Smoke kernel */
 #define CAP_HSWRITE      (1 << 12)   /* T87A: HS-CAN write (requires kernel already running) */
+#define CAP_T42_READ     (1 << 13)   /* T42: Flashy clean-room MC68377 kernel, MVP auth+upload+ping */
 
 static uint16_t module_caps(gm_module_t m) {
     switch (m) {
@@ -7975,6 +9323,7 @@ static uint16_t module_caps(gm_module_t m) {
             return CAP_BAMREAD | CAP_BAMWRITE | CAP_FULLREAD | CAP_CALREAD | CAP_READ |
                    CAP_CALWRITE | CAP_FULLWRITE | CAP_KERNEL | CAP_ERASE;
         case MODULE_T42:
+            return CAP_T42_READ;
         case MODULE_E40:
         default:
             return 0;  /* diag-only */
@@ -8112,7 +9461,8 @@ static void menu_show_ecu(void) {
     Serial.println("  4) E40 ECM");
     Serial.println("  5) T87 TCM");
     Serial.println("  6) T87A TCM");
-    Serial.println("  7) T42 TCM");
+    Serial.println("  7) T93 TCM (BAM)");
+    Serial.println("  8) T42 TCM");
     Serial.println("  B) Back");
 }
 
@@ -8173,6 +9523,11 @@ static void menu_show_ecu_ops(void) {
     if (caps & CAP_CALREAD)      { Serial.print("  "); Serial.print(n++); Serial.println(") Cal Read"); }
     if (caps & CAP_BAMREAD)      { Serial.print("  "); Serial.print(n++); Serial.println(") BAM Read"); }
     if (caps & CAP_HSREAD)       { Serial.print("  "); Serial.print(n++); Serial.println(") HS Read (Rollin Smoke kernel)"); }
+    if (caps & CAP_T42_READ)     { Serial.print("  "); Serial.print(n++); Serial.println(") T42 Read (A: baseline patches 1+2)"); }
+    if (caps & CAP_T42_READ)     { Serial.print("  "); Serial.print(n++); Serial.println(") T42 Read B (+ full prog-mode $10 02 $A2)"); }
+    if (caps & CAP_T42_READ)     { Serial.print("  "); Serial.print(n++); Serial.println(") T42 Read C (+ sustained 100 ms $3E heartbeat)"); }
+    if (caps & CAP_T42_READ)     { Serial.print("  "); Serial.print(n++); Serial.println(") T42 Read D (+ probe fan-out BB/21/55/$35/$3E)"); }
+    if (caps & CAP_T42_READ)     { Serial.print("  "); Serial.print(n++); Serial.println(") T42 Read E (+ 2000 ms boot delay)"); }
     /* Write options */
     if (caps & CAP_FULLWRITE)    { Serial.print("  "); Serial.print(n++); Serial.println(") Full Write"); }
     if (caps & CAP_CALWRITE)     { Serial.print("  "); Serial.print(n++); Serial.println(") Cal Write"); }
@@ -8446,6 +9801,7 @@ static bool menu_handle_input(const char *input) {
                         if (Serial.available()) {
                             char c = (char)Serial.read();
                             if (c == '\n' || c == '\r') { if (ppos > 0) break; }
+                            else if (c == 0x08 || c == 0x7F) { if (ppos > 0) ppos--; }
                             else if (ppos < (int)sizeof(path_buf) - 1) path_buf[ppos++] = c;
                         }
                     }
@@ -8478,6 +9834,7 @@ static bool menu_handle_input(const char *input) {
                         if (Serial.available()) {
                             char c = (char)Serial.read();
                             if (c == '\n' || c == '\r') { if (ppos > 0) break; }
+                            else if (c == 0x08 || c == 0x7F) { if (ppos > 0) ppos--; }
                             else if (ppos < (int)sizeof(path_buf) - 1) path_buf[ppos++] = c;
                         }
                     }
@@ -8504,6 +9861,7 @@ static bool menu_handle_input(const char *input) {
                         if (Serial.available()) {
                             char c = (char)Serial.read();
                             if (c == '\n' || c == '\r') { if (vpos > 0) break; }
+                            else if (c == 0x08 || c == 0x7F) { if (vpos > 0) vpos--; }
                             else if (vpos < (int)sizeof(vin_buf) - 1) vin_buf[vpos++] = c;
                         }
                     }
@@ -8534,6 +9892,11 @@ static bool menu_handle_input(const char *input) {
         if (caps & CAP_CALREAD)      { if (choice == n) { cmd_calread();      menu_show_ecu_ops(); return true; } n++; }
         if (caps & CAP_BAMREAD)      { if (choice == n) { cmd_bamread();      menu_show_ecu_ops(); return true; } n++; }
         if (caps & CAP_HSREAD)       { if (choice == n) { cmd_hsread(NULL);   menu_show_ecu_ops(); return true; } n++; }
+        if (caps & CAP_T42_READ)     { if (choice == n) { cmd_t42_read("A"); menu_show_ecu_ops(); return true; } n++; }
+        if (caps & CAP_T42_READ)     { if (choice == n) { cmd_t42_read("B"); menu_show_ecu_ops(); return true; } n++; }
+        if (caps & CAP_T42_READ)     { if (choice == n) { cmd_t42_read("C"); menu_show_ecu_ops(); return true; } n++; }
+        if (caps & CAP_T42_READ)     { if (choice == n) { cmd_t42_read("D"); menu_show_ecu_ops(); return true; } n++; }
+        if (caps & CAP_T42_READ)     { if (choice == n) { cmd_t42_read("E"); menu_show_ecu_ops(); return true; } n++; }
         /* Write options */
         if (caps & CAP_FULLWRITE)    { if (choice == n) { cmd_fullwrite();    menu_show_ecu_ops(); return true; } n++; }
         if (caps & CAP_CALWRITE)     { if (choice == n) { cmd_calwrite();     menu_show_ecu_ops(); return true; } n++; }
@@ -8554,6 +9917,7 @@ static bool menu_handle_input(const char *input) {
                 if (Serial.available()) {
                     char c = (char)Serial.read();
                     if (c == '\n' || c == '\r') { if (vpos > 0) break; }
+                    else if (c == 0x08 || c == 0x7F) { if (vpos > 0) vpos--; }
                     else if (vpos < (int)sizeof(vin_buf) - 1) vin_buf[vpos++] = c;
                 }
             }
@@ -8971,6 +10335,11 @@ static void cmd_sdstat(void)
     print_ok();
 }
 
+/* KNOWN ISSUE (2026-04-24): SDPEEK silently hangs (no output, no ERR) when
+ * the requested offset is >= 0x10000 (64 KB). Smaller offsets work fine.
+ * Suspected SdFat seekSet behaviour on large offsets in this driver
+ * version. Workaround: copy the .bin off SD to a PC and inspect with xxd
+ * or hexdump. Offsets up to 0xFFFF are fully usable inside SDPEEK. */
 static void cmd_sdpeek(const char *arg)
 {
     if (!g_sd_ok) { print_err("no SD card"); return; }
@@ -9246,6 +10615,28 @@ static void process_command(char *line)
     else if (strcmp(cmd, "KERNEL")     == 0) cmd_kernel_upload();
     else if (strcmp(cmd, "KERNELREAD") == 0) cmd_kernel_read(arg);
     else if (strcmp(cmd, "E92FULLREAD")== 0) cmd_e92_fullread();
+    else if (strcmp(cmd, "E92ID")      == 0) cmd_e92id();
+    else if (strcmp(cmd, "E92SAPROBE") == 0) cmd_e92saprobe();
+    else if (strcmp(cmd, "T42READ")    == 0) cmd_t42_read(arg);
+#if KERNEL_T42_USBJTAG_AVAILABLE
+    else if (strcmp(cmd, "T42USB")     == 0) cmd_t42_usb(arg);
+#endif
+    else if (strcmp(cmd, "T42DUMP")    == 0) cmd_t42_dump(arg);
+    else if (strcmp(cmd, "T42RA_READ") == 0) cmd_t42_ra_read(arg);
+    else if (strcmp(cmd, "KLIST")      == 0) kernel_registry_klist();
+    else if (strcmp(cmd, "KUSE")       == 0) {
+        if (!arg || !*arg) { print_err("usage: KUSE <id>  (see KLIST)"); }
+        else {
+            const kernel_entry_t *e = kernel_select_by_id(arg);
+            if (!e) { Serial.print("KUSE: no kernel with id '");
+                      Serial.print(arg); Serial.println("'"); }
+            else { Serial.print("KUSE: selected "); Serial.print(e->id);
+                   Serial.print(" ("); Serial.print(e->display_name);
+                   Serial.println(")"); }
+        }
+    }
+    else if (strcmp(cmd, "SET")        == 0) cmd_set(arg);
+    else if (strcmp(cmd, "PARAMS")     == 0) cmd_params();
     else if (strcmp(cmd, "SETCLOCK")   == 0) cmd_setclock(arg);
     else if (strcmp(cmd, "CLOCK")      == 0) cmd_setclock("");
     else if (strcmp(cmd, "STATUS")   == 0) cmd_status();
@@ -9391,6 +10782,10 @@ void loop()
                 g_cmd_pos = 0;
                 Serial.print("> ");
             }
+        } else if (c == 0x08 || c == 0x7F) {
+            /* Backspace / DEL — drop last char so typed corrections don't
+             * leak into commands (VINWRITE length check, etc.). */
+            if (g_cmd_pos > 0) g_cmd_pos--;
         } else if (g_cmd_pos < sizeof(g_cmd_buf) - 1) {
             g_cmd_buf[g_cmd_pos++] = c;
         }

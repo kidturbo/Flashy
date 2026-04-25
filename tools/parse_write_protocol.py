@@ -5,7 +5,9 @@ Shows the high-level phases: diagnostics, security, kernel, erase, write, finali
 import sys
 import csv
 
-csv_path = sys.argv[1] if len(sys.argv) > 1 else r"C:\Users\Owner\Documents\GMLAN\T87A\t87-calflash-efilive.csv"
+if len(sys.argv) < 2:
+    sys.exit("usage: parse_write_protocol.py <savvycan_capture.csv>")
+csv_path = sys.argv[1]
 
 frames = []
 with open(csv_path, newline='') as f:

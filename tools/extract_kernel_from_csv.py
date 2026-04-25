@@ -93,9 +93,9 @@ def extract_kernel(csv_path, tx_id=0x7E0, rx_id=0x7E8):
         versions = re.findall(r'[\w\(\)]+\s+E\w+_v[\d.]+\w*', text)
         if versions:
             print(f"Version strings found: {versions}")
-        efi_match = re.search(r'\(c\)\d{4}\s+EFILIVE\s+\S+', text)
-        if efi_match:
-            print(f"Copyright: {efi_match.group()}")
+        cr_match = re.search(r'\(c\)\d{4}\s+\S+\s+\S+', text)
+        if cr_match:
+            print(f"Copyright: {cr_match.group()}")
     except:
         pass
 

@@ -1,0 +1,54 @@
+{
+  "_comment_1": "Copy this file to your kernel folder as meta.json. Fields below are required unless marked optional.",
+  "_comment_2": "Delete the _comment_* lines before use — JSON ignores them but they clutter your file.",
+
+  "target": "T42",
+  "display_name": "Describe this kernel however you want",
+
+  "load_addr": "0xFF8B40",
+
+  "upload_format": {
+    "_note": "Choose the format the ECU's bootloader expects for $34 and $36.",
+
+    "$34": {
+      "type": "size3",
+      "_valid_types": ["size3", "size4", "addr4"],
+      "_note_size3": "3-byte size (bytes 2-4), common GM pattern: 34 00 <sz_hi> <sz_mid> <sz_lo>",
+      "_note_size4": "4-byte size",
+      "_note_addr4": "4-byte load address encoded in $34 (alternate GM pattern)"
+    },
+
+    "$36": {
+      "type": "addr4",
+      "block_seq": 128,
+      "_valid_types": ["addr4", "sized"],
+      "_note_addr4": "4-byte load address in $36: 36 <block_seq> <a3> <a2> <a1> <a0> <data...>",
+      "_note_sized": "length-prefixed payload, no embedded addr (rare)",
+      "_note_block_seq": "Typical value 0x80 for a single-block upload"
+    }
+  },
+
+  "handoff": {
+    "use_$37": false,
+    "auto_jump": true,
+    "_note_$37": "Some bootloaders require $37 TransferExit to jump to kernel. T42 auto-jumps on $36 complete.",
+    "_note_auto_jump": "If true, skip $37 — bootloader jumps to load_addr after last $36 CF."
+  },
+
+  "boot_delay_ms": 500,
+
+  "probe": {
+    "service": "$1A",
+    "pid": "$BB",
+    "_note": "Flashy sends this after boot_delay_ms to probe for kernel-alive. Set service to null if the kernel emits unsolicited boot signature instead."
+  },
+
+  "expected_reply": {
+    "service": "$5A",
+    "pid": "$BB",
+    "sig_bytes": "FLSHY",
+    "_note_sig_bytes": "ASCII bytes expected in response payload. null to skip signature check."
+  },
+
+  "notes": "Free-form field for your own commentary — never parsed by Flashy."
+}

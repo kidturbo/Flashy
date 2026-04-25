@@ -8,7 +8,9 @@ import sys
 import csv
 import struct
 
-csv_path = sys.argv[1] if len(sys.argv) > 1 else r"C:\Users\Owner\Documents\GMLAN\T87A\t87-calflash-efilive.csv"
+if len(sys.argv) < 2:
+    sys.exit("usage: extract_kernel.py <savvycan_capture.csv>")
+csv_path = sys.argv[1]
 
 frames = []
 with open(csv_path, newline='') as f:
@@ -122,18 +124,13 @@ for row_off in range(start, len(kernel_bytes), 16):
     hex_str = ' '.join(f'{kernel_bytes[row_off+j]:02X}' for j in range(min(16, len(kernel_bytes) - row_off)))
     print(f"  {row_off:04X}: {hex_str}")
 
-# Look for embedded signature string
+# Look for any embedded copyright / version string
 kernel_str = bytes(kernel_bytes)
-efi_idx = kernel_str.find(b"EFILIVE")
-if efi_idx >= 0:
-    sig = kernel_str[efi_idx-4:efi_idx+30]
-    print(f"\n  Signature at offset 0x{efi_idx-4:X}: {sig}")
-else:
-    # Try lowercase or partial
-    for needle in [b"T87_", b"v1.0", b"(c)20"]:
-        idx = kernel_str.find(needle)
-        if idx >= 0:
-            print(f"  Found '{needle.decode()}' at offset 0x{idx:X}: {kernel_str[idx:idx+40]}")
+for needle in [b"(c)20", b"T87_", b"v1.0", b"v0.", b"FLSHY"]:
+    idx = kernel_str.find(needle)
+    if idx >= 0:
+        print(f"  Found '{needle.decode()}' at offset 0x{idx:X}: {kernel_str[idx:idx+40]}")
+        break
 
 # Find execute command ($36 80)
 print(f"\n=== Searching for $36 80 Execute Command ===")
