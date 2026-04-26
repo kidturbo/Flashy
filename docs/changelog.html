@@ -115,6 +115,22 @@
 </div>
 
 <!-- ============================================================ -->
+<h2>Unreleased <span class="date">post-v1.5.0</span></h2>
+<div class="card">
+    <ul>
+        <li><span class="tag tag-added">Added</span> <strong>Universal <code>CLEARDTC</code></strong> &mdash; 3-pass cross-vendor clear: Mode <code>$04</code> broadcast on functional <code>0x7DF</code>, then physical UDS <code>$10 03</code> + <code>$14 FF FF FF</code> per responder, then a GMLAN <code>$28</code>/<code>$A2</code>/<code>$A5</code> broadcast wake-up + <code>$14</code> with <code>$20 returnToNormal</code> cleanup. Bench-verified non-destructive across repeated runs.</li>
+        <li><span class="tag tag-added">Added</span> <strong><code>SCAN FULL</code></strong> &mdash; per-module Mode 9 dump: VIN, ECU Name (PID 0A), all CAL IDs (PID 04), all CVNs (PID 06), GM <code>$1A B4</code> cal-info string. Default <code>SCAN</code> / <code>SCAN FAST</code> remains the quick presence + VIN walk.</li>
+        <li><span class="tag tag-added">Added</span> <strong><code>tools/obd2/</code></strong> &mdash; vendor-neutral host wrappers for <code>CLEARDTC</code> and <code>SCAN FULL</code> with parsed output (including <code>--json</code>) and an NRC reference table.</li>
+        <li><span class="tag tag-added">Added</span> <strong><code>tools/set_rtc_local.py</code></strong> &mdash; sets the Feather&rsquo;s PCF8523 RTC from the host&rsquo;s current local time. Auto-detects the Feather by USB VID and exits the boot menu first.</li>
+        <li><span class="tag tag-changed">Changed</span> <code>OSID</code> now walks every GM diagnostic slot like <code>SCAN</code> and prints the primary OSID per responder (was: only the active ECM).</li>
+        <li><span class="tag tag-changed">Changed</span> <code>PING</code> accepts NRC as proof of life (matches <code>SCAN</code>&rsquo;s logic) and prints the destination IDs so you can see which module is being pinged.</li>
+        <li><span class="tag tag-changed">Changed</span> GM diagnostic slot labels broadened &mdash; <code>0x7E3</code> &ldquo;ABS&rdquo; &rarr; &ldquo;ABS/FPCM&rdquo;, <code>0x7E1</code> &ldquo;ECM2&rdquo; &rarr; &ldquo;ECM2/FSCM&rdquo;, <code>0x7E6</code> &ldquo;RCDLR&rdquo; &rarr; &ldquo;ECU6&rdquo;. Vendor assignment varies; <code>SCAN FULL</code>&rsquo;s ECU Name field is the authoritative identifier.</li>
+        <li><span class="tag tag-fixed">Fixed</span> RTC boot banner stopped reporting &ldquo;time not set&rdquo; on every boot when the time was actually valid &mdash; the PCF8523 <code>initialized()</code> and <code>lostPower()</code> flags were being misinterpreted; now we trust <code>now().year()</code> plausibility.</li>
+        <li><span class="tag tag-fixed">Fixed</span> <code>tools/flashy_diag.py</code> decoded firmware output as ASCII; em-dashes from the firmware were rendering as <code>&hellip;</code>. Now decodes UTF-8.</li>
+    </ul>
+</div>
+
+<!-- ============================================================ -->
 <h2>v1.5.0 &mdash; Interactive menu, E92 variant gates, kernel registry <span class="date">2026-04-25</span></h2>
 <div class="card">
     <ul>

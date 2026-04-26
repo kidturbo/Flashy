@@ -78,17 +78,17 @@ The firmware is written against the standard Arduino framework (via PlatformIO) 
 
 ## Supported Modules
 
-All listed modules respond to VIN scan, VIN read/write, OSID read, and CAN bus capture **out of the box** in the public release. Flash read/write needs either the clean-room kernel (E92 today) or a user-supplied kernel header — see the "With your own kernel" column. Live status is tracked in the [ECU Reference Guide](https://kidturbo.github.io/Flashy/ecu-reference.html) and the [wiki](https://github.com/kidturbo/Flashy/wiki).
+All listed modules respond to VIN scan, OSID read, OBD-II Mode 9 dump (`SCAN FULL`), Clear DTC, and CAN bus capture **out of the box** in the public release — these work cross-vendor (GM, Ford, Toyota, BMW, etc.) per SAE J1979 / ISO 14229. Flash read/write needs either the clean-room kernel (E92 today) or a user-supplied kernel header — see the "With your own kernel" column. Live status is tracked in the [ECU Reference Guide](https://kidturbo.github.io/Flashy/ecu-reference.html) and the [wiki](https://github.com/kidturbo/Flashy/wiki).
 
-| Module | Type | CAN IDs | Flash | Public build (v1.4.0) | With your own kernel |
+| Module | Type | CAN IDs | Flash | Public build (v1.5.0) | With your own kernel |
 |--------|------|---------|-------|-----------------------|----------------------|
-| **E92** | ECM | 0x7E0 / 0x7E8 | 4 MB | ✓ **Full Read** (clean-room kernel) | — |
+| **E92** | ECM | 0x7E0 / 0x7E8 | 4 MB | ✓ **Full Read** (clean-room kernel), Early/Late variant detection + algo 146 unlock for Late | — |
 | E38 | ECM | 0x7E0 / 0x7E8 | 2 MB | VIN + diagnostics | Read + Write (algo 402) |
 | E67 | ECM | 0x7E0 / 0x7E8 | 2 MB | VIN + diagnostics | Read (algo 393) |
 | T87 | TCM | 0x7E2 / 0x7EA | 4 MB | VIN + diagnostics | Read + Write (algo 569) |
-| T87A | TCM (10L/8L) | 0x7E2 / 0x7EA | 4 MB | VIN + diagnostics | BAM + HS-CAN read/write (5-byte algo) |
+| T87A | TCM (10L/8L) | 0x7E2 / 0x7EA | 4 MB | VIN + diagnostics, CALWRITE/FULLWRITE proven on HS-CAN | BAM + HS-CAN read/write (5-byte algo) |
 | T93 | TCM | 0x7E2 / 0x7EA | 4 MB | VIN + diagnostics | *In progress* |
-| T42 | TCM | 0x7E2 / 0x7EA | 1 MB | VIN + diagnostics | *Planned* |
+| T42 | TCM | 0x7E2 / 0x7EA | 1 MB | VIN + diagnostics, kernel upload + ping verified | *Read MVP* |
 | E40 | ECM | 0x7E0 / 0x7E8 | 1 MB | VIN + diagnostics | *Planned* |
 
 > Want flash read/write on a non-E92 module today? See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the workflow to extract a kernel from a CAN capture of a tool you own and rebuild firmware locally. New clean-room kernels will land in future releases — track the [changelog](https://kidturbo.github.io/Flashy/changelog.html).
@@ -156,16 +156,25 @@ tools/                 Python host-side tools
   capture_write.py     Flash write driver
   vin_scan.py          Multi-module VIN scanner
   vin_update.py        Single-module VIN updater
+  set_rtc_local.py     Set Flashy's PCF8523 RTC from PC's current local time
   detect_port.py       Auto-detect Feather USB COM port
   seed_key_algo.py     Python seed→key (all 1280 GM algorithms)
   t87a_patch.py        T87A 5-patch dual-unlock tool + checksum recalc
   t87_calwrite.py      T87 calibration-only write
   t87_fullwrite.py     T87 full-flash write
   sd_upload.py         Upload files to Feather SD card over serial
+  flashy_diag.py       Scripted serial driver with wallclock timestamps
+  socketcan_sniff.py   Bridge a remote socketcand daemon → SavvyCAN CSV
+  vinwrite_debug.py    Multi-stage VIN-write diagnostic
   gm5byte/             Python reference implementation of 5-byte key
+  obd2/                Vendor-neutral OBD-II / UDS diagnostics
+    clear_dtc.py       Universal Clear DTC (Mode $04 + UDS $14 + GMLAN wake-up)
+    scan_full.py       Per-module Mode 9 dump (VIN, ECU Name, cal IDs, CVNs)
+    README.md          Usage + NRC reference table
+  e92a_*.py            E92A (Late E92) authentication helpers
   build_exe.py         PyInstaller build → portable .exe distribution
   capture_bus.py       CAN bus → SavvyCAN-format CSV (drives CAPTURE cmd)
-  extract_kernel.py    Extract kernel bytes from an SavvyCAN-style CSV
+  extract_kernel.py    Extract kernel bytes from a SavvyCAN-style CSV
   extract_kernel_from_csv.py  Generic CSV kernel extractor
   extract_usbjtag_kernel.py   USBJTAG-style CAN capture extractor
 Cernels/               Clean-room PowerPC Kernel source (MIT)
@@ -176,31 +185,49 @@ Cernels/               Clean-room PowerPC Kernel source (MIT)
 ## Serial Commands
 
 ```
-INIT [baud]           Init CAN bus (default 500000)
-SETID <tx> <rx>       Set tester/ECU CAN IDs (hex)
-ALGO <e38|e67|t87|...>  Select module + seed-key algorithm
-DIAG [session]        DiagnosticSessionControl
-AUTH [key_hex]        SecurityAccess (seed → auto-compute key)
-KERNEL                Upload kernel to ECU
-FULLREAD              Automated full flash read
-CALREAD               Calibration-only read (E38)
-READ <addr> <blocks>  Manual block read
-WRITE <addr> <blocks> Write blocks from PC
-CALWRITE              Automated cal write + verify
-FULLWRITE             Automated full flash write + verify
-BAMREAD               T87A: BAM boot-mode full read
-BAMWRITE [file]       T87A: BAM boot-mode write + verify
-VIN                   Read VIN
-VINWRITE <vin>        Write 17-character VIN
-SCAN                  Scan bus for all modules + VINs
-OSID                  Read OS/Calibration ID
-ERASE <addr> <size>   Erase flash region
-RESET [type]          ECU Reset
-RAW <hex>             Send raw UDS request
-CANSEND <id> <hex>    Send raw CAN frame
-STATUS                Show connection state
-MENU                  Interactive module menu
-HELP                  List commands
+INIT [baud]              Init CAN bus (default 500000 — AUTOINIT runs at boot)
+SETID <tx> <rx>          Set tester/ECU CAN IDs (hex)
+ALGO <e38|e67|t87|...>   Select module + seed-key algorithm
+DIAG [session]           DiagnosticSessionControl
+AUTH [key_hex]           SecurityAccess (seed → auto-compute key)
+KERNEL                   Upload kernel to ECU
+KLIST / KUSE <id>        List + select kernels in the runtime registry
+SET <key> <val> / PARAMS Per-kernel runtime overrides (boot delay, probe, TXE, $3E)
+
+PING                     TesterPresent probe — alive on positive or NRC
+SCAN [FAST|FULL]         Walk every module on the bus
+                           FAST: presence + VIN per responder (default)
+                           FULL: + Mode 9 dump (VIN, ECU Name, cal IDs, CVNs)
+OSID                     Walk all modules and print primary OSID per responder
+VIN / VINWRITE <vin>     Read / write 17-character VIN
+CLEARDTC                 Universal Clear DTC across every module on the bus
+                           Pass 1: OBD-II Mode $04 broadcast (0x7DF)
+                           Pass 2: physical UDS $10 03 + $14 FF FF FF
+                           Pass 3: GMLAN broadcast wake-up + $14
+SETCLOCK YYMMDD HHMM[SS] Set the on-board PCF8523 RTC
+
+FULLREAD                 Automated full flash read
+CALREAD                  Calibration-only read (E38)
+READ <addr> <blocks>     Manual block read
+WRITE <addr> <blocks>    Write blocks from PC
+CALWRITE                 Automated cal write + verify
+FULLWRITE                Automated full flash write + verify
+BAMREAD                  T87A: BAM boot-mode full read
+BAMWRITE [file]          T87A: BAM boot-mode write + verify
+
+E92ID                    Classify attached E92 (Early algo 513 vs Late algo 146)
+E92SAPROBE               Sweep E92 SecurityAccess sub-levels for diagnostics
+E92FULLREAD              Late E92A: unlock + kernel upload + full read + reset
+T42READ [A..E]           T42 TCM clean-room kernel upload + ping (5 variants)
+
+ERASE <addr> <size>      Erase flash region
+RESET [type]             ECU Reset
+RAW <hex>                Send raw UDS request
+CANSEND <id> <hex>       Send raw CAN frame
+CAPTURE <ms>             Stream CAN frames as SavvyCAN CSV for <ms> ms
+STATUS                   Show connection state
+MENU                     Interactive module menu
+HELP                     List commands
 ```
 
 ## Kernel Binaries

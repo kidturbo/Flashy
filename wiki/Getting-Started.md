@@ -85,5 +85,6 @@ The NeoPixel on the Feather shows the current state:
 
 - [Downloads](Downloads) — what's in the release zip
 - [Documentation Index](Documentation-Index) — full protocol, module reference, unlock recipes
+- [Tools Reference](https://kidturbo.github.io/Flashy/Tools-Reference.html) — every Python helper with a one-line description, including the cross-vendor [`tools/obd2/`](https://github.com/kidturbo/Flashy/tree/main/tools/obd2) Clear DTC and Mode 9 scan utilities
 - [Report a Bug](https://github.com/kidturbo/Flashy/issues/new?template=bug_report.md) — if something goes wrong
 - [Request new module support](https://github.com/kidturbo/Flashy/issues/new?template=feature_request.md) — for BCMs or any CAN node not yet on the list
