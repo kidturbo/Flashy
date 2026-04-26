@@ -726,12 +726,32 @@ static void cmd_diag(const char *arg)
 static void cmd_ping(void)
 {
     if (!g_can_initialized) { print_err("not initialized"); return; }
-    int ret = uds_tester_present(&g_isotp_link);
+
+    /* Send $3E 00 TesterPresent and treat ANY response — positive or
+     * negative — as "module alive". An NRC means the ECU heard us and
+     * chose to reject; that's still proof of life. SCAN uses the same
+     * rule (main.cpp ~9018), and Ping should too. Without this many GM
+     * ECMs report "no response" in default session even though they're
+     * fine. */
+    uint8_t req[2] = { UDS_SID_TESTER_PRESENT, 0x00 };
+    uds_msg_t resp;
+    int ret = uds_request(&g_isotp_link, req, sizeof(req), &resp,
+                          UDS_DEFAULT_TIMEOUT_MS);
+
+    Serial.print("PING 0x"); Serial.print(g_tester_id, HEX);
+    Serial.print("/0x"); Serial.print(g_ecu_id, HEX); Serial.print(": ");
+
     if (ret == UDS_OK) {
-        Serial.println("ECU alive");
+        Serial.println("alive (positive)");
+        print_ok();
+    } else if (ret == UDS_ERR_NEGATIVE) {
+        Serial.print("alive (NRC 0x");
+        Serial.print(resp.nrc, HEX);
+        Serial.println(")");
         print_ok();
     } else {
-        print_err("no response");
+        Serial.println("no response");
+        print_err("ping timeout — wrong ID, module unpowered, or bus down");
     }
 }
 
@@ -5961,6 +5981,33 @@ static void cmd_bamread(void)
 char g_vin[20]  = {0};   /* 17-char VIN + null */
 char g_osid[20] = {0};   /* up to 16-char cal ID + null */
 
+/* Known GM diagnostic CAN ID pairs. Used by SCAN, OSID, and VIN
+ * commands to walk the bus. Defined here so all three commands
+ * (which appear in this file in different orders) can see it. */
+struct gm_scan_entry {
+    uint32_t    tx_id;
+    uint32_t    rx_id;
+    const char *name;
+};
+
+/* GMLAN / ISO 15765-4 reserves 0x7E0..0x7E7 for "ECU0..ECU7" and the
+ * vendor decides which physical module owns each slot. GM's typical
+ * assignment is shown below, but the slot label is just a hint — for
+ * the authoritative module identity, run SCAN FULL (which pulls Mode 9
+ * PID 0A "ECU Name" directly from the controller). E.g., this bench's
+ * 0x7E3 self-reports as FPCM-FuelPumpCtrl, not ABS. */
+static const gm_scan_entry GM_MODULES[] = {
+    { 0x7E0, 0x7E8, "ECM" },        /* Engine Control Module */
+    { 0x7E2, 0x7EA, "TCM" },        /* Transmission Control Module */
+    { 0x7E1, 0x7E9, "ECM2/FSCM" },  /* Secondary ECM or Fuel System Control */
+    { 0x7E3, 0x7EB, "ABS/FPCM" },   /* ABS/EBCM (pre-2014) or FPCM (hybrids, 2017+ trucks) */
+    { 0x7E4, 0x7EC, "IPC" },        /* Instrument Panel Cluster */
+    { 0x7E5, 0x7ED, "BCM" },        /* Body Control Module */
+    { 0x7E6, 0x7EE, "ECU6" },       /* varies: RCDLR / lift gate / charging module */
+    { 0x7E7, 0x7EF, "HVAC" },       /* HVAC controller */
+};
+#define GM_MODULE_COUNT (sizeof(GM_MODULES) / sizeof(GM_MODULES[0]))
+
 static bool read_vin_from_ecu(void)
 {
     /* GM ReadDataByLocalIdentifier: 1A 90 (VIN) */
@@ -6041,6 +6088,71 @@ static bool read_osid_from_ecu(void)
     return (j > 0);
 }
 
+/* Read up to max_n calibration IDs via OBD-II Mode 9 PID 04.
+ * Each cal ID is 16 ASCII bytes (null-padded). Returns count parsed. */
+static int read_calids_mode9(char cal_ids[][17], int max_n)
+{
+    uint8_t req[2] = { 0x09, 0x04 };
+    uds_msg_t resp;
+    int ret = uds_request(&g_isotp_link, req, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
+    if (ret != UDS_OK || resp.is_negative || resp.data_len < 2) return 0;
+    int num = resp.data[0];
+    if (num > max_n) num = max_n;
+    if (num < 0) return 0;
+    for (int k = 0; k < num; k++) {
+        int off = 1 + k * 16;
+        int j = 0;
+        for (int i = 0; i < 16 && (off + i) < (int)resp.data_len; i++) {
+            uint8_t c = resp.data[off + i];
+            if (c == 0x00) break;
+            if (c >= 0x20 && c <= 0x7E) cal_ids[k][j++] = (char)c;
+        }
+        cal_ids[k][j] = '\0';
+    }
+    return num;
+}
+
+/* Read up to max_n CVNs (4-byte each) via OBD-II Mode 9 PID 06.
+ * CVNs are raw bytes, not ASCII. Returns count parsed. */
+static int read_cvns_mode9(uint8_t cvns[][4], int max_n)
+{
+    uint8_t req[2] = { 0x09, 0x06 };
+    uds_msg_t resp;
+    int ret = uds_request(&g_isotp_link, req, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
+    if (ret != UDS_OK || resp.is_negative || resp.data_len < 2) return 0;
+    int num = resp.data[0];
+    if (num > max_n) num = max_n;
+    if (num < 0) return 0;
+    for (int k = 0; k < num; k++) {
+        int off = 1 + k * 4;
+        for (int b = 0; b < 4; b++) {
+            cvns[k][b] = ((off + b) < (int)resp.data_len) ? resp.data[off + b] : 0;
+        }
+    }
+    return num;
+}
+
+/* Read ECU Name (Mode 9 PID 0A) — 20-byte ASCII string. Returns true on success. */
+static bool read_ecu_name_mode9(char *name_out, size_t name_out_size)
+{
+    if (name_out_size == 0) return false;
+    name_out[0] = '\0';
+    uint8_t req[2] = { 0x09, 0x0A };
+    uds_msg_t resp;
+    int ret = uds_request(&g_isotp_link, req, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
+    if (ret != UDS_OK || resp.is_negative || resp.data_len < 2) return false;
+    int len = (int)resp.data_len - 1;
+    if (len > 20) len = 20;
+    int j = 0;
+    for (int i = 0; i < len && (size_t)j < name_out_size - 1; i++) {
+        uint8_t c = resp.data[1 + i];
+        if (c == 0x00) break;
+        if (c >= 0x20 && c <= 0x7E) name_out[j++] = (char)c;
+    }
+    name_out[j] = '\0';
+    return j > 0;
+}
+
 static void cmd_vin(void)
 {
     if (!g_can_initialized) { print_err("not initialized"); return; }
@@ -6055,12 +6167,67 @@ static void cmd_vin(void)
 static void cmd_osid(void)
 {
     if (!g_can_initialized) { print_err("not initialized"); return; }
-    if (read_osid_from_ecu()) {
-        Serial.print("OSID:"); Serial.println(g_osid);
-        print_ok();
-    } else {
-        print_err("OSID read failed");
+
+    /* Walk every known GM diagnostic slot like SCAN does and print
+     * the primary OSID for any responder. Treat any reply (positive
+     * or NRC) on TesterPresent as proof of presence; the OSID itself
+     * comes from Mode 9 PID 04 (or GM $1A B4 fallback) via
+     * read_osid_from_ecu(). */
+    uint32_t save_tx = g_tester_id;
+    uint32_t save_rx = g_ecu_id;
+
+    Serial.println("OSID:START");
+    int found = 0;
+
+    for (unsigned i = 0; i < GM_MODULE_COUNT; i++) {
+        g_tester_id = GM_MODULES[i].tx_id;
+        g_ecu_id    = GM_MODULES[i].rx_id;
+        isotp_init_link(&g_isotp_link, g_tester_id,
+                        g_isotp_send_buf, sizeof(g_isotp_send_buf),
+                        g_isotp_recv_buf, sizeof(g_isotp_recv_buf));
+
+        { uint32_t rid; uint8_t rd[8]; uint8_t rl;
+          while (can_receive(&rid, rd, &rl) == 0) {} }
+
+        /* Quick presence check */
+        uint8_t tp_req[2] = { UDS_SID_TESTER_PRESENT, 0x00 };
+        uds_msg_t tp_resp;
+        int ret = uds_request(&g_isotp_link, tp_req, 2, &tp_resp, 500);
+        if (ret != UDS_OK && ret != UDS_ERR_NEGATIVE) continue;
+
+        /* Re-init link after possible NRC, then read OSID */
+        isotp_init_link(&g_isotp_link, g_tester_id,
+                        g_isotp_send_buf, sizeof(g_isotp_send_buf),
+                        g_isotp_recv_buf, sizeof(g_isotp_recv_buf));
+
+        if (read_osid_from_ecu()) {
+            Serial.print("OSID:0x");
+            Serial.print(GM_MODULES[i].tx_id, HEX);
+            Serial.print(" ");
+            Serial.print(GM_MODULES[i].name);
+            Serial.print(" ");
+            Serial.println(g_osid);
+            found++;
+        } else {
+            Serial.print("OSID:0x");
+            Serial.print(GM_MODULES[i].tx_id, HEX);
+            Serial.print(" ");
+            Serial.print(GM_MODULES[i].name);
+            Serial.println(" (present, no OSID)");
+        }
     }
+
+    /* Restore state */
+    g_tester_id = save_tx;
+    g_ecu_id    = save_rx;
+    isotp_init_link(&g_isotp_link, g_tester_id,
+                    g_isotp_send_buf, sizeof(g_isotp_send_buf),
+                    g_isotp_recv_buf, sizeof(g_isotp_recv_buf));
+
+    Serial.print("OSID:DONE ");
+    Serial.print(found);
+    Serial.println(" module(s) reported");
+    print_ok();
 }
 
 static void cmd_vinwrite(const char *arg)
@@ -8958,36 +9125,98 @@ static void cmd_cansend(const char *arg)
     }
 }
 
-/* ---------- SCAN: probe CAN bus for modules ---------- */
+/* ---------- SCAN: probe CAN bus for modules ----------
+ * (struct + table moved up near read_vin_from_ecu so cmd_osid /
+ * cmd_vin can iterate it; original location retained for context.) */
 
-/* Known GM diagnostic CAN ID pairs */
-struct gm_scan_entry {
-    uint32_t    tx_id;
-    uint32_t    rx_id;
-    const char *name;
-};
+/* Pull every Mode 9 datum we can from the currently-linked module.
+ * Caller has already set g_tester_id / g_ecu_id and re-initialized
+ * g_isotp_link to point at this module. */
+static void scan_full_module_dump(const gm_scan_entry *m)
+{
+    bool any = false;
 
-static const gm_scan_entry GM_MODULES[] = {
-    { 0x7E0, 0x7E8, "ECM" },     /* Engine Control Module */
-    { 0x7E2, 0x7EA, "TCM" },     /* Transmission Control Module */
-    { 0x7E1, 0x7E9, "ECM2" },    /* Secondary ECM (some platforms) */
-    { 0x7E3, 0x7EB, "ABS" },     /* ABS / EBCM */
-    { 0x7E4, 0x7EC, "IPC" },     /* Instrument Panel Cluster */
-    { 0x7E5, 0x7ED, "BCM" },     /* Body Control Module */
-    { 0x7E6, 0x7EE, "RCDLR" },   /* Rear Compartment Door Latch */
-    { 0x7E7, 0x7EF, "HVAC" },    /* HVAC */
-};
-#define GM_MODULE_COUNT (sizeof(GM_MODULES) / sizeof(GM_MODULES[0]))
+    /* VIN — try GM 1A 90, then UDS 22 F190 */
+    if (read_vin_from_ecu()) {
+        Serial.print("  VIN:        "); Serial.println(g_vin);
+        any = true;
+    }
 
-static void cmd_scan(void)
+    /* ECU Name (Mode 9 PID 0A) */
+    char ecu_name[24];
+    if (read_ecu_name_mode9(ecu_name, sizeof(ecu_name))) {
+        Serial.print("  ECU Name:   "); Serial.println(ecu_name);
+        any = true;
+    }
+
+    /* CAL IDs (Mode 9 PID 04) — list every cal ID, not just first */
+    char calids[8][17];
+    for (int i = 0; i < 8; i++) calids[i][0] = '\0';
+    int n_cal = read_calids_mode9(calids, 8);
+    if (n_cal > 0) {
+        Serial.print("  CAL IDs ("); Serial.print(n_cal); Serial.println("):");
+        for (int i = 0; i < n_cal; i++) {
+            Serial.print("    "); Serial.print(i); Serial.print(": ");
+            Serial.println(calids[i]);
+        }
+        any = true;
+    }
+
+    /* CVNs (Mode 9 PID 06) — 4-byte hex per cal */
+    uint8_t cvns[8][4];
+    for (int i = 0; i < 8; i++) for (int b = 0; b < 4; b++) cvns[i][b] = 0;
+    int n_cvn = read_cvns_mode9(cvns, 8);
+    if (n_cvn > 0) {
+        Serial.print("  CVNs ("); Serial.print(n_cvn); Serial.println("):");
+        for (int i = 0; i < n_cvn; i++) {
+            Serial.print("    "); Serial.print(i); Serial.print(": 0x");
+            for (int b = 0; b < 4; b++) {
+                if (cvns[i][b] < 0x10) Serial.print('0');
+                Serial.print(cvns[i][b], HEX);
+            }
+            Serial.println();
+        }
+        any = true;
+    }
+
+    /* GM ReadDataByLocalIdentifier $1A B4 — alphanumeric cal ID, often
+     * present on GM modules even when Mode 9 PID 04 is absent. */
+    {
+        uint8_t req[2] = { 0x1A, 0xB4 };
+        uds_msg_t resp;
+        int ret = uds_request(&g_isotp_link, req, 2, &resp, UDS_DEFAULT_TIMEOUT_MS);
+        if (ret == UDS_OK && !resp.is_negative && resp.data_len > 0) {
+            Serial.print("  $1A B4:    ");
+            uint16_t lim = resp.data_len > 32 ? 32 : resp.data_len;
+            for (uint16_t i = 0; i < lim; i++) {
+                uint8_t c = resp.data[i];
+                if (c >= 0x20 && c <= 0x7E) Serial.print((char)c);
+                else { Serial.print('.'); }
+            }
+            Serial.println();
+            any = true;
+        }
+    }
+
+    if (!any) {
+        Serial.print("  (no Mode 9 data — ");
+        Serial.print(m->name);
+        Serial.println(" is not OBD-II Mode 9 compliant)");
+    }
+}
+
+static void cmd_scan(const char *arg)
 {
     if (!g_can_initialized) { print_err("not initialized"); return; }
+
+    bool full = (arg && (strcasecmp(arg, "FULL") == 0));
 
     /* Save current state */
     uint32_t save_tx  = g_tester_id;
     uint32_t save_rx  = g_ecu_id;
 
-    Serial.println("SCAN:START");
+    Serial.print("SCAN:START");
+    Serial.println(full ? " (FULL — Mode 9 dump per module)" : " (FAST — presence + VIN)");
     int found = 0;
 
     for (unsigned i = 0; i < GM_MODULE_COUNT; i++) {
@@ -9025,11 +9254,14 @@ static void cmd_scan(void)
             Serial.print(" ");
             Serial.println(GM_MODULES[i].name);
 
-            /* Re-init link (clean state after NRC) then try to read VIN */
+            /* Re-init link (clean state after NRC) */
             isotp_init_link(&g_isotp_link, g_tester_id,
                             g_isotp_send_buf, sizeof(g_isotp_send_buf),
                             g_isotp_recv_buf, sizeof(g_isotp_recv_buf));
-            if (read_vin_from_ecu()) {
+
+            if (full) {
+                scan_full_module_dump(&GM_MODULES[i]);
+            } else if (read_vin_from_ecu()) {
                 Serial.print("SCAN:VIN 0x");
                 Serial.print(GM_MODULES[i].tx_id, HEX);
                 Serial.print(" ");
@@ -9124,31 +9356,273 @@ static void cmd_read_dtc(void) {
     print_uds_error(ret, &resp);
 }
 
-/* Clear DTCs — try OBD-II $04 first, fall back to UDS $14 FF FF FF. */
+/* CLEARDTC — universal OBD-II Clear DTC across every module on the bus.
+ *
+ * Sends Mode $04 to the ISO 15765-4 functional broadcast ID 0x7DF, then
+ * collects single-frame responses from any 0x7E8..0x7EF slot for 1.5 s.
+ * Each ECU on the bus responds individually with 0x44 (positive) or
+ * 0x7F 04 NRC (rejected). If no Mode 04 positives, falls back to UDS
+ * $14 FF FF FF (clear all DTC groups) on the same broadcast ID.
+ *
+ * Bypasses g_isotp_link on purpose: that link is bound to a single
+ * physical ECU (g_ecu_id), so it can't hear multi-ECU broadcast
+ * responses. We use raw can_send / can_receive with accept-all filter. */
 static void cmd_clear_dtc(void) {
     if (!g_can_initialized) { print_err("CAN not initialized"); return; }
-    uds_msg_t resp;
 
-    /* OBD-II Mode $04 */
-    uint8_t obd_req[1] = { 0x04 };
-    int ret = uds_request(&g_isotp_link, obd_req, 1, &resp, UDS_DEFAULT_TIMEOUT_MS);
-    if (ret == UDS_OK && !resp.is_negative) {
-        Serial.println("  DTCs cleared (OBD-II).");
+    /* Accept every ID so we hear all responders. cmd_init / other
+     * flows restore narrower filters when they need them. */
+    can_set_filter(0, 0);
+    /* Drain any pending RX so we only see frames triggered by our send. */
+    {
+        uint32_t _id; uint8_t _d[8]; uint8_t _l;
+        while (can_receive(&_id, _d, &_l) == 0) { /* drain */ }
+    }
+
+    enum { CDR_NONE = 0, CDR_POS = 1, CDR_NRC = 2 };
+    uint8_t state[8];
+    uint8_t nrc[8];
+
+    /* === Pass 1: OBD-II Mode $04 broadcast === */
+    Serial.println("CLEARDTC: Mode $04 -> 0x7DF (functional broadcast)");
+    for (unsigned i = 0; i < 8; i++) { state[i] = CDR_NONE; nrc[i] = 0; }
+    {
+        uint8_t f[8] = { 0x01, 0x04, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
+        can_send(0x7DF, f, 8);
+    }
+
+    uint32_t deadline = millis() + 1500;
+    while ((int32_t)(millis() - deadline) < 0) {
+        uint32_t id; uint8_t d[8]; uint8_t l;
+        if (can_receive(&id, d, &l) != 0) continue;
+        if (id < 0x7E8 || id > 0x7EF) continue;
+        if (l < 2) continue;
+        unsigned slot = id - 0x7E8;
+        uint8_t pci_len = d[0] & 0x0F;
+        if (pci_len < 1) continue;
+        if (d[1] == 0x44) {
+            state[slot] = CDR_POS;
+        } else if (d[1] == 0x7F && pci_len >= 3 && d[2] == 0x04) {
+            state[slot] = CDR_NRC;
+            nrc[slot] = d[3];
+        }
+    }
+
+    int positives = 0, nrcs = 0;
+    for (unsigned i = 0; i < 8; i++) {
+        if (state[i] == CDR_POS) positives++;
+        else if (state[i] == CDR_NRC) nrcs++;
+    }
+    Serial.print("  cleared="); Serial.print(positives);
+    Serial.print("  nrc="); Serial.println(nrcs);
+    for (unsigned i = 0; i < 8; i++) {
+        if (state[i] == CDR_POS) {
+            Serial.print("    0x"); Serial.print(0x7E8 + i, HEX);
+            Serial.println(": cleared (positive 0x44)");
+        } else if (state[i] == CDR_NRC) {
+            Serial.print("    0x"); Serial.print(0x7E8 + i, HEX);
+            Serial.print(": NRC 0x"); Serial.println(nrc[i], HEX);
+        }
+    }
+
+    /* Track which slots responded (positive OR NRC) on Mode $04 — those
+     * are the modules we'll target physically in Pass 2. A pure NRC 0x22
+     * "conditionsNotCorrect" on Mode $04 is common on benches and on
+     * non-emissions modules; UDS $14 with a $10 03 prelude often
+     * succeeds where Mode $04 alone does not. */
+    bool responded[8] = {false,false,false,false,false,false,false,false};
+    for (unsigned i = 0; i < 8; i++) {
+        if (state[i] != CDR_NONE) responded[i] = true;
+    }
+
+    if (positives > 0 && nrcs == 0) {
+        /* Clean Mode $04 sweep — every responder cleared. Done. */
         print_ok();
         return;
     }
 
-    /* Fall back to UDS $14 */
-    uint8_t uds_req[4] = { 0x14, 0xFF, 0xFF, 0xFF };
-    ret = uds_request(&g_isotp_link, uds_req, 4, &resp, UDS_DEFAULT_TIMEOUT_MS);
-    if (ret == UDS_OK && !resp.is_negative) {
-        Serial.println("  DTCs cleared (UDS).");
+    /* === Pass 2: per-responder physical UDS $10 03 + $14 FF FF FF ===
+     * Many GM modules (ABS, BCM) refuse Mode $04 ("conditionsNotCorrect")
+     * but accept UDS ClearDiagnosticInformation in extendedDiagnosticSession.
+     * We send these P2P to each module's physical TX (0x7E0+slot), wait
+     * up to 800 ms for a single-frame response on its physical RX. */
+    int p2_sent = 0;
+    int p2_pos  = 0;
+    int p2_nrc  = 0;
+    int p2_none = 0;
+    if (positives < (int)0)  positives = 0;  /* safety */
+    bool any_p2_target = false;
+    for (unsigned i = 0; i < 8; i++) if (responded[i]) { any_p2_target = true; break; }
+
+    if (any_p2_target) {
+        Serial.println("CLEARDTC: Pass 2 — physical UDS $10 03 + $14 FF FF FF per responder");
+    } else {
+        Serial.println("CLEARDTC: Pass 2 skipped — no Mode $04 responders to target");
+    }
+
+    for (unsigned i = 0; i < 8; i++) {
+        if (!responded[i]) continue;
+        uint32_t phys_tx = 0x7E0 + i;
+        uint32_t phys_rx = 0x7E8 + i;
+        p2_sent++;
+
+        /* Drain RX so we don't see stale frames. */
+        { uint32_t _id; uint8_t _d[8]; uint8_t _l;
+          while (can_receive(&_id, _d, &_l) == 0) {} }
+
+        /* --- Step 2a: $10 03 extendedDiagnosticSession --- */
+        {
+            uint8_t f[8] = { 0x02, 0x10, 0x03, 0x55, 0x55, 0x55, 0x55, 0x55 };
+            can_send(phys_tx, f, 8);
+        }
+        bool sess_ok = false;
+        uint32_t s_dl = millis() + 600;
+        while ((int32_t)(millis() - s_dl) < 0) {
+            uint32_t id; uint8_t d[8]; uint8_t l;
+            if (can_receive(&id, d, &l) != 0) continue;
+            if (id != phys_rx || l < 2) continue;
+            uint8_t pci_len = d[0] & 0x0F;
+            /* Positive: 06 50 03 .. .. .. .. ..  (or single-frame variant) */
+            if (pci_len >= 2 && d[1] == 0x50) { sess_ok = true; break; }
+            /* Negative: 03 7F 10 NRC ... — any NRC means session opened, just not granted.
+             * If NRC = 0x78 (responsePending), wait further. Otherwise abort this ECU. */
+            if (pci_len >= 3 && d[1] == 0x7F && d[2] == 0x10) {
+                if (d[3] == 0x78) { /* responsePending — keep waiting */ continue; }
+                sess_ok = false; break;
+            }
+        }
+        /* If session not granted, still attempt $14 — some ECUs accept it
+         * in default session. */
+
+        /* --- Step 2b: $14 FF FF FF clearDiagnosticInformation --- */
+        { uint32_t _id; uint8_t _d[8]; uint8_t _l;
+          while (can_receive(&_id, _d, &_l) == 0) {} }
+        {
+            uint8_t f[8] = { 0x04, 0x14, 0xFF, 0xFF, 0xFF, 0x55, 0x55, 0x55 };
+            can_send(phys_tx, f, 8);
+        }
+        uint8_t  outcome = 0;   /* 0=none, 1=pos, 2=nrc */
+        uint8_t  nrc_b   = 0;
+        uint32_t c_dl = millis() + 1000;
+        while ((int32_t)(millis() - c_dl) < 0) {
+            uint32_t id; uint8_t d[8]; uint8_t l;
+            if (can_receive(&id, d, &l) != 0) continue;
+            if (id != phys_rx || l < 2) continue;
+            uint8_t pci_len = d[0] & 0x0F;
+            if (pci_len >= 1 && d[1] == 0x54) { outcome = 1; break; }
+            if (pci_len >= 3 && d[1] == 0x7F && d[2] == 0x14) {
+                if (d[3] == 0x78) continue;   /* responsePending */
+                outcome = 2; nrc_b = d[3]; break;
+            }
+        }
+
+        Serial.print("    0x"); Serial.print(phys_tx, HEX);
+        Serial.print(" ($10 03=");
+        Serial.print(sess_ok ? "ok" : "no");
+        Serial.print(", $14=");
+        if (outcome == 1) {
+            Serial.println("CLEARED)");
+            p2_pos++;
+        } else if (outcome == 2) {
+            Serial.print("NRC 0x"); Serial.print(nrc_b, HEX); Serial.println(")");
+            p2_nrc++;
+        } else {
+            Serial.println("no-reply)");
+            p2_none++;
+        }
+    }
+
+    if (any_p2_target) {
+        Serial.print("  Pass 2 summary: cleared="); Serial.print(p2_pos);
+        Serial.print(" nrc="); Serial.print(p2_nrc);
+        Serial.print(" no-reply="); Serial.println(p2_none);
+    }
+
+    /* === Pass 3: GMLAN programming-mode wake-up + per-responder $14 ===
+     * GM modules in default session refuse $14 with NRC 0x11
+     * (serviceNotSupported). The fix is the GMLAN broadcast wake-up
+     * sequence on 0x101: $28 00 disableNormalCommunication, $A2
+     * ProgrammingMode, $A5 01 requestProgrammingMode, $A5 03
+     * enableProgrammingMode. Once applied, modules accept $14.
+     *
+     * This is invasive — it silences normal CAN traffic across the
+     * whole bus until $20 returnToNormal is sent. We do that at the
+     * end, and we only run Pass 3 if Pass 2 failed completely. */
+    int p3_pos = 0, p3_nrc = 0, p3_none = 0;
+    bool ran_pass3 = false;
+    if (any_p2_target && p2_pos == 0) {
+        ran_pass3 = true;
+        Serial.println("CLEARDTC: Pass 3 — GMLAN wake-up + $14 FF FF FF per responder");
+        Serial.println("  (broadcasting $28 / $A2 / $A5 on 0x101 — bus will be silenced briefly)");
+
+        { uint8_t b[8] = { 0xFE, 0x01, 0x28, 0x00, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+        delay(50);
+        { uint8_t b[8] = { 0xFE, 0x01, 0xA2, 0x00, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+        delay(50);
+        { uint8_t b[8] = { 0xFE, 0x02, 0xA5, 0x01, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+        delay(280);
+        { uint8_t b[8] = { 0xFE, 0x02, 0xA5, 0x03, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+        delay(230);
+
+        for (unsigned i = 0; i < 8; i++) {
+            if (!responded[i]) continue;
+            uint32_t phys_tx = 0x7E0 + i;
+            uint32_t phys_rx = 0x7E8 + i;
+
+            { uint32_t _id; uint8_t _d[8]; uint8_t _l;
+              while (can_receive(&_id, _d, &_l) == 0) {} }
+
+            { uint8_t f[8] = { 0x04, 0x14, 0xFF, 0xFF, 0xFF, 0x55, 0x55, 0x55 };
+              can_send(phys_tx, f, 8); }
+
+            uint8_t  outcome = 0;
+            uint8_t  nrc_b   = 0;
+            uint32_t dl = millis() + 1500;
+            while ((int32_t)(millis() - dl) < 0) {
+                uint32_t id; uint8_t d[8]; uint8_t l;
+                if (can_receive(&id, d, &l) != 0) continue;
+                if (id != phys_rx || l < 2) continue;
+                uint8_t pci_len = d[0] & 0x0F;
+                if (pci_len >= 1 && d[1] == 0x54) { outcome = 1; break; }
+                if (pci_len >= 3 && d[1] == 0x7F && d[2] == 0x14) {
+                    if (d[3] == 0x78) continue;   /* responsePending */
+                    outcome = 2; nrc_b = d[3]; break;
+                }
+            }
+
+            Serial.print("    0x"); Serial.print(phys_tx, HEX);
+            Serial.print(" ($14 post-wakeup=");
+            if (outcome == 1) { Serial.println("CLEARED)"); p3_pos++; }
+            else if (outcome == 2) {
+                Serial.print("NRC 0x"); Serial.print(nrc_b, HEX); Serial.println(")");
+                p3_nrc++;
+            } else {
+                Serial.println("no-reply)");
+                p3_none++;
+            }
+        }
+
+        Serial.print("  Pass 3 summary: cleared="); Serial.print(p3_pos);
+        Serial.print(" nrc="); Serial.print(p3_nrc);
+        Serial.print(" no-reply="); Serial.println(p3_none);
+
+        /* Restore normal bus traffic: $20 returnToNormalMode broadcast */
+        { uint8_t b[8] = { 0xFE, 0x01, 0x20, 0x00, 0, 0, 0, 0 }; can_send(0x101, b, 8); }
+        Serial.println("  $20 returnToNormal broadcast sent");
+    }
+
+    /* === Outcome ===
+     * Success if at least one ECU got a positive on any pass. */
+    if (positives > 0 || p2_pos > 0 || p3_pos > 0) {
         print_ok();
         return;
     }
 
-    print_err("DTC clear failed (both OBD-II $04 and UDS $14 rejected)");
-    print_uds_error(ret, &resp);
+    if (ran_pass3) {
+        print_err("CLEARDTC: no module accepted Mode $04, plain UDS $14, or post-wakeup UDS $14");
+    } else {
+        print_err("CLEARDTC: no module accepted Mode $04 or UDS $14");
+    }
 }
 
 /* Bus Sniffer — live CAN frame display, stops on any keypress */
@@ -9443,12 +9917,13 @@ static void menu_show_diag(void) {
     Serial.println();
     Serial.println("  -- DIAG --");
     Serial.println("  1) Ping");
-    Serial.println("  2) Scan");
-    Serial.println("  3) Read DTC");
-    Serial.println("  4) Clear DTC");
-    Serial.println("  5) SD Card");
-    Serial.println("  6) Set Clock");
-    Serial.println("  7) Status");
+    Serial.println("  2) Scan (Fast)");
+    Serial.println("  3) Scan (Full — Mode 9 dump)");
+    Serial.println("  4) Read DTC");
+    Serial.println("  5) Clear DTC");
+    Serial.println("  6) SD Card");
+    Serial.println("  7) Set Clock");
+    Serial.println("  8) Status");
     Serial.println("  B) Back");
 }
 
@@ -9735,21 +10210,25 @@ static bool menu_handle_input(const char *input) {
                 if (!g_can_initialized) {
                     Serial.println("  Connect first.");
                 } else {
-                    cmd_scan();
-                    /* After scan with exactly 1 module, prompt to program */
-                    /* (scan prints "SCAN:DONE N module(s)" — user can
-                     * select from ECU menu manually) */
+                    cmd_scan(NULL);   /* fast */
                 }
                 break;
             case 3:
-                if (!g_can_initialized) { Serial.println("  Connect first."); }
-                else { cmd_read_dtc(); }
+                if (!g_can_initialized) {
+                    Serial.println("  Connect first.");
+                } else {
+                    cmd_scan("FULL"); /* full Mode 9 dump per module */
+                }
                 break;
             case 4:
                 if (!g_can_initialized) { Serial.println("  Connect first."); }
-                else { cmd_clear_dtc(); }
+                else { cmd_read_dtc(); }
                 break;
             case 5:
+                if (!g_can_initialized) { Serial.println("  Connect first."); }
+                else { cmd_clear_dtc(); }
+                break;
+            case 6:
                 /* SD Card status */
                 if (g_sd_ok) {
                     Serial.println("  SD card: OK");
@@ -9757,8 +10236,8 @@ static bool menu_handle_input(const char *input) {
                     Serial.println("  SD card: not found");
                 }
                 break;
-            case 6: cmd_setclock(""); break;
-            case 7: cmd_status(); break;
+            case 7: cmd_setclock(""); break;
+            case 8: cmd_status(); break;
             default:
                 Serial.println("  Invalid choice.");
                 break;
@@ -10572,6 +11051,7 @@ static void process_command(char *line)
     else if (strcmp(cmd, "AUTOINIT") == 0) cmd_autoinit();
     else if (strcmp(cmd, "SETID")    == 0) cmd_setid(arg);
     else if (strcmp(cmd, "DIAG")     == 0) cmd_diag(arg);
+    else if (strcmp(cmd, "CLEARDTC") == 0) cmd_clear_dtc();
     else if (strcmp(cmd, "PING")     == 0) cmd_ping();
     else if (strcmp(cmd, "AUTH")     == 0) cmd_auth(arg);
     else if (strcmp(cmd, "ALGO")     == 0) cmd_algo(arg);
@@ -10579,7 +11059,7 @@ static void process_command(char *line)
     else if (strcmp(cmd, "READ")     == 0) cmd_read(arg);
     else if (strcmp(cmd, "VIN")      == 0) cmd_vin();
     else if (strcmp(cmd, "VINWRITE") == 0) cmd_vinwrite(arg);
-    else if (strcmp(cmd, "SCAN")     == 0) cmd_scan();
+    else if (strcmp(cmd, "SCAN")     == 0) cmd_scan(arg);
     else if (strcmp(cmd, "OSID")     == 0) cmd_osid();
     else if (strcmp(cmd, "FULLREAD") == 0) cmd_fullread();
     else if (strcmp(cmd, "CALREAD")  == 0) cmd_calread();
@@ -10720,14 +11200,25 @@ void setup()
         Serial.println("SD card: not found (reads will use serial only)");
     }
 
-    /* PCF8523 RTC (optional on Adalogger). I2C already started by Wire. */
+    /* PCF8523 RTC (optional on Adalogger). I2C already started by Wire.
+     *
+     * Banner check uses year plausibility — NOT initialized() or
+     * lostPower(). Both of those report stale "false" / "true" forever
+     * after first power-up: initialized() tracks Control_3 PWRMNG bits
+     * (battery backup mode, not time validity) and lostPower() reads the
+     * OS (Oscillator Stop) bit which standard RTClib's adjust() never
+     * clears. Result: both flags stayed wrong even after a successful
+     * SETCLOCK, producing a misleading "time not set" banner on every
+     * boot. now().year() is the only signal we can trust. */
     Wire.begin();
     if (g_rtc.begin()) {
         g_rtc_ok = true;
-        if (!g_rtc.initialized() || g_rtc.lostPower()) {
+        g_rtc.start();   /* clear STOP bit if set */
+        DateTime n = g_rtc.now();
+        bool plausible = (n.year() >= 2024 && n.year() <= 2099);
+        if (!plausible) {
             Serial.println("RTC: present, time not set — run SETCLOCK YYMMDD HHMM");
         } else {
-            DateTime n = g_rtc.now();
             Serial.print("RTC: ");
             Serial.print(n.year());   Serial.print('-');
             if (n.month()  < 10) Serial.print('0'); Serial.print(n.month());  Serial.print('-');
@@ -10736,7 +11227,6 @@ void setup()
             if (n.minute() < 10) Serial.print('0'); Serial.print(n.minute()); Serial.print(':');
             if (n.second() < 10) Serial.print('0'); Serial.println(n.second());
         }
-        g_rtc.start();   /* clear stop bit if set */
     } else {
         Serial.println("RTC: not detected (fallback to SETCLOCK soft clock)");
     }

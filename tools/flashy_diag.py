@@ -62,7 +62,7 @@ def run_cmd(s, cmd, wait_s):
                 break
             time.sleep(0.05)
     ts_rx = wallclock()
-    text = buf.decode('ascii', errors='replace')
+    text = buf.decode('utf-8', errors='replace')
     print(text, end='' if text.endswith('\n') else '\n')
     print(f'--- [{ts_rx}] done ---')
     return text

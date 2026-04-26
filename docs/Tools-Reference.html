@@ -132,6 +132,21 @@
 </div>
 
 <!-- ============================================================ -->
+<h2>OBD-II / UDS diagnostics <span class="count">2 tools</span></h2>
+<p>Vendor-neutral host scripts that wrap the firmware's universal OBD-II services. These work across manufacturers (GM, Ford, Toyota, BMW, etc.) because Mode $04 / Mode 9 are SAE J1979 mandates and UDS $14 / $10 03 are ISO 14229. See <a href="https://github.com/kidturbo/Flashy/blob/main/tools/obd2/README.md"><code>tools/obd2/README.md</code></a> for the NRC reference table.</p>
+<div class="card">
+<table>
+    <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+    <tbody>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/obd2/clear_dtc.py">obd2/clear_dtc.py</a></td>
+            <td>Universal Clear DTC. Pass 1 broadcasts OBD-II Mode <code>$04</code> to functional <code>0x7DF</code> and collects each ECU's response from <code>0x7E8&hellip;0x7EF</code>. Pass 2 falls back to physical UDS <code>$10 03</code> + <code>$14 FF FF FF</code> per responder when Mode <code>$04</code> NRCs.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/obd2/scan_full.py">obd2/scan_full.py</a></td>
+            <td>Mode 9 dump for every module on the bus &mdash; VIN, ECU Name, CAL IDs, CVNs, GM <code>$1A B4</code> cal info. Default output is the firmware text; <code>--json</code> emits parsed structured data per module.</td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
 <h2>Bench drivers <span class="count">7 tools</span></h2>
 <p>Host-side serial drivers for routine work with a flashed Feather M4 CAN: capture, VIN, SD upload, diagnostics.</p>
 <div class="card">
@@ -148,6 +163,8 @@
             <td>Scripted serial driver: send a sequence of Feather commands and capture each response with wallclock timestamps. Handy for bench recovery probes and protocol experiments.</td></tr>
         <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/sd_upload.py">sd_upload.py</a></td>
             <td>Uploads a file from the host to the Feather&rsquo;s SD card over serial at ~5 KB/s. Used to stage write payloads without pulling the card.</td></tr>
+        <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/set_rtc_local.py">set_rtc_local.py</a></td>
+            <td>Sets Flashy&rsquo;s PCF8523 RTC from the PC&rsquo;s current local time (or UTC with <code>--utc</code>). Auto-detects the Feather by USB VID. Exits the boot menu first so <code>SETCLOCK</code> isn&rsquo;t intercepted.</td></tr>
         <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/vin_scan.py">vin_scan.py</a></td>
             <td>Scans the CAN bus for all modules, prints each VIN, and offers an interactive update for any module.</td></tr>
         <tr><td class="tool"><a href="https://github.com/kidturbo/Flashy/blob/main/tools/vin_update.py">vin_update.py</a></td>
