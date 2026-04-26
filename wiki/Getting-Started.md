@@ -25,6 +25,45 @@ PlatformIO auto-detects the Feather and flashes it. See [CONTRIBUTING.md](https:
 
 ---
 
+## Running the Python Tools (Windows, no VS Code)
+
+Most users never need to touch a Python script — the prebuilt `.bat` launchers in [Option A](#option-a--pre-built-easy) cover VIN scan, read, write, capture, and flash firmware. But the [`tools/`](https://github.com/kidturbo/Flashy/tree/main/tools) folder has more — OBD-II Clear DTC, Mode 9 dump, RTC sync, and the E92A authentication helpers — that aren't in the bundled `.exe` set. Three ways to run them, easiest first:
+
+### 1. Windows Terminal (recommended for most)
+
+The cleanest no-IDE option:
+
+1. Install [Python 3.9+](https://www.python.org/downloads/windows/) — **check "Add to PATH"** during install.
+2. `pip install pyserial pycryptodome`
+3. Get [Windows Terminal](https://aka.ms/terminal) from the Microsoft Store (already on Win 11).
+4. Right-click your `Flashy` folder → **Open in Terminal** → run:
+   ```
+   python tools/obd2/scan_full.py --port COM13 --json
+   python tools/set_rtc_local.py
+   python tools/obd2/clear_dtc.py --port COM13
+   ```
+
+[Git Bash](https://git-scm.com/download/win) works the same way if you prefer a Unix-style shell.
+
+### 2. Thonny — single-download Python IDE
+
+If you want a click-to-run editor without VS Code's complexity, [Thonny](https://thonny.org/) is one download, opens your repo, has a Run button, and includes a built-in shell. Good for someone new to Python.
+
+### 3. PyCharm Community — full IDE (closest to VS Code)
+
+[PyCharm Community Edition](https://www.jetbrains.com/pycharm/download/) is a full professional IDE — free for open-source and personal use. Closest like-for-like swap with VS Code in feature set, just JetBrains-flavored. Run buttons, debugger, terminal, and project view all built in.
+
+### For maintainers — what we use
+
+The repo includes a [`.vscode/extensions.json`](https://github.com/kidturbo/Flashy/blob/main/.vscode/extensions.json) recommendation. When opening the repo in VS Code, accept the "Install recommended extensions" prompt to get:
+
+- **[PlatformIO IDE](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide)** — build / upload firmware, serial monitor.
+- **[Python (Microsoft)](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** — run / debug `.py`.
+
+The full per-tool catalog and one-line descriptions live on the [Tools Reference](https://kidturbo.github.io/Flashy/Tools-Reference.html) page.
+
+---
+
 ## First Serial Connection
 
 Open a terminal (PuTTY, TeraTerm, Arduino IDE Serial Monitor) at **115200 baud** on the Feather's COM port.

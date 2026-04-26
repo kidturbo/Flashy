@@ -132,6 +132,41 @@
 </div>
 
 <!-- ============================================================ -->
+<h2>Running the tools on Windows</h2>
+<p>You don&rsquo;t need VS Code. Pick the path that matches how much setup you want to do:</p>
+<div class="card">
+<table>
+    <thead><tr><th>Path</th><th>When to use it</th><th>What you install</th></tr></thead>
+    <tbody>
+        <tr>
+            <td><strong>1. Prebuilt installer</strong><br>(zero Python needed)</td>
+            <td>You just want VIN scan / read / write / capture &mdash; the most-used workflows. The installer ships standalone <code>.exe</code> bundles for those plus <code>.bat</code> launchers you double-click.</td>
+            <td><a href="https://github.com/kidturbo/Flashy/releases/latest"><code>Flashy-Tool-Setup-1.5.x.exe</code></a> from the latest release. Or unzip <code>Flashy-Tool.zip</code> into a folder and double-click any <code>.bat</code>.</td>
+        </tr>
+        <tr>
+            <td><strong>2. Windows Terminal</strong><br>(any tool, terminal-only)</td>
+            <td>You want to run any <code>.py</code> in <code>tools/</code> &mdash; including the ones not in the bundled set (e.g. <code>obd2/clear_dtc.py</code>, <code>set_rtc_local.py</code>, <code>e92a_*</code>). Cleanest no-IDE answer.</td>
+            <td>Python 3.9+ from <a href="https://www.python.org/downloads/windows/">python.org</a> (check &ldquo;Add to PATH&rdquo; on install), then <code>pip install pyserial pycryptodome</code>. Get <a href="https://aka.ms/terminal">Windows Terminal</a> from the Microsoft Store, then right-click the repo folder &rarr; &ldquo;Open in Terminal&rdquo;. <a href="https://git-scm.com/download/win">Git Bash</a> works too if you prefer a Unix-style shell.</td>
+        </tr>
+        <tr>
+            <td><strong>3. Thonny or PyCharm</strong><br>(GUI alternative to VS Code)</td>
+            <td>You want a click-to-run editor with a built-in terminal, but don&rsquo;t want VS Code&rsquo;s complexity. Open the repo, click a <code>.py</code>, hit Run.</td>
+            <td><a href="https://thonny.org/">Thonny</a> for beginners (single download, simple UI). <a href="https://www.jetbrains.com/pycharm/download/">PyCharm Community</a> for a full pro IDE &mdash; closest like-for-like swap with VS Code, free for open-source / personal use.</td>
+        </tr>
+    </tbody>
+</table>
+</div>
+<p>If you&rsquo;re on Linux or macOS, paths 2 and 3 work the same &mdash; the repo&rsquo;s scripts are pure Python with no Windows-specific bits except the default COM-port detection (you can override with <code>--port /dev/ttyACM0</code> or similar).</p>
+
+<h3 style="color: var(--heading); font-size: 1rem; margin: 1.25rem 0 0.5rem;">For Flashy maintainers using VS Code</h3>
+<p>The repo includes a <a href="https://github.com/kidturbo/Flashy/blob/main/.vscode/extensions.json"><code>.vscode/extensions.json</code></a> hint that VS Code reads on first open. Accept the &ldquo;Install recommended extensions&rdquo; prompt to get:</p>
+<ul>
+    <li><a href="https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide"><strong>PlatformIO IDE</strong></a> &mdash; builds and uploads firmware to the Feather. Provides &ldquo;Build&rdquo;, &ldquo;Upload&rdquo;, and serial-monitor buttons in the status bar.</li>
+    <li><a href="https://marketplace.visualstudio.com/items?itemName=ms-python.python"><strong>Python</strong> (Microsoft)</a> &mdash; runs and debugs <code>.py</code>, syntax highlighting, IntelliSense.</li>
+</ul>
+<p>The repo also ships a <code>.vscode/tasks.json</code> (gitignored, locally maintained) with one-click tasks for build firmware, upload firmware, serial monitor, build Windows release, and every bench tool. Open via Ctrl+Shift+P &rarr; <strong>Tasks: Run Task</strong>.</p>
+
+<!-- ============================================================ -->
 <h2>OBD-II / UDS diagnostics <span class="count">2 tools</span></h2>
 <p>Vendor-neutral host scripts that wrap the firmware's universal OBD-II services. These work across manufacturers (GM, Ford, Toyota, BMW, etc.) because Mode $04 / Mode 9 are SAE J1979 mandates and UDS $14 / $10 03 are ISO 14229. See <a href="https://github.com/kidturbo/Flashy/blob/main/tools/obd2/README.md"><code>tools/obd2/README.md</code></a> for the NRC reference table.</p>
 <div class="card">
