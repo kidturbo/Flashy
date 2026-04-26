@@ -1,3 +1,5 @@
+<sub>Mirrored from [`wiki/Hardware-Assembly.md`](https://github.com/kidturbo/Flashy/blob/main/wiki/Hardware-Assembly.md) by the [sync workflow](https://github.com/kidturbo/Flashy/actions/workflows/sync-wiki.yml). Direct edits in the GitHub Wiki UI will be overwritten on the next push to `main` — [edit upstream](https://github.com/kidturbo/Flashy/edit/main/wiki/Hardware-Assembly.md) instead.</sub>
+
 # Hardware Assembly
 
 Flashy uses two stacked Adafruit Feather boards. Total build time is about 15 minutes once you have the parts. The assembled device can talk to any CAN-based automotive module — ECMs, TCMs, BCMs, or other nodes — either through the OBD-II port or on a bench harness.

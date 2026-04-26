@@ -1,3 +1,5 @@
+<sub>Mirrored from [`wiki/Downloads.md`](https://github.com/kidturbo/Flashy/blob/main/wiki/Downloads.md) by the [sync workflow](https://github.com/kidturbo/Flashy/actions/workflows/sync-wiki.yml). Direct edits in the GitHub Wiki UI will be overwritten on the next push to `main` — [edit upstream](https://github.com/kidturbo/Flashy/edit/main/wiki/Downloads.md) instead.</sub>
+
 # Downloads
 
 All releases are published at: **[github.com/kidturbo/Flashy/releases](https://github.com/kidturbo/Flashy/releases)**

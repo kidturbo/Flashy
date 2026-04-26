@@ -1,3 +1,5 @@
+<sub>Mirrored from [`wiki/Getting-Started.md`](https://github.com/kidturbo/Flashy/blob/main/wiki/Getting-Started.md) by the [sync workflow](https://github.com/kidturbo/Flashy/actions/workflows/sync-wiki.yml). Direct edits in the GitHub Wiki UI will be overwritten on the next push to `main` — [edit upstream](https://github.com/kidturbo/Flashy/edit/main/wiki/Getting-Started.md) instead.</sub>
+
 # Getting Started
 
 Once your [hardware is assembled](Hardware-Assembly), flash the firmware and connect. Flashy can interact with any CAN-based automotive module — ECMs, TCMs, BCMs, and more — using diagnostic services, reversing workflows, and flash programming routines.

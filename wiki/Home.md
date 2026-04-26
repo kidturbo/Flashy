@@ -1,3 +1,5 @@
+<sub>Mirrored from [`wiki/Home.md`](https://github.com/kidturbo/Flashy/blob/main/wiki/Home.md) by the [sync workflow](https://github.com/kidturbo/Flashy/actions/workflows/sync-wiki.yml). Direct edits in the GitHub Wiki UI will be overwritten on the next push to `main` — [edit upstream](https://github.com/kidturbo/Flashy/edit/main/wiki/Home.md) instead.</sub>
+
 # Welcome to Flashy
 
 **Flashy** is a J2534-style Pass-Thru tool for **diagnostics, reversing, and programming automotive ECUs**. It bridges a PC to the vehicle's CAN bus (over OBD-II or bench connection) to read, write, and interact with firmware on Engine Control Modules (ECMs), Transmission Control Modules (TCMs), Body Control Modules (BCMs), and any other node on the CAN network.

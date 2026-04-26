@@ -1,3 +1,5 @@
+<sub>Mirrored from [`wiki/Advanced-Commands.md`](https://github.com/kidturbo/Flashy/blob/main/wiki/Advanced-Commands.md) by the [sync workflow](https://github.com/kidturbo/Flashy/actions/workflows/sync-wiki.yml). Direct edits in the GitHub Wiki UI will be overwritten on the next push to `main` — [edit upstream](https://github.com/kidturbo/Flashy/edit/main/wiki/Advanced-Commands.md) instead.</sub>
+
 # Advanced: Direct Commands
 
 The [MENU](Getting-Started) flow is the recommended path for most users. But if you'd rather drive Flashy with direct serial commands — for scripting, automation, or just preference — this page covers the raw command workflow.

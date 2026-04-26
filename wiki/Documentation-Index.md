@@ -1,3 +1,5 @@
+<sub>Mirrored from [`wiki/Documentation-Index.md`](https://github.com/kidturbo/Flashy/blob/main/wiki/Documentation-Index.md) by the [sync workflow](https://github.com/kidturbo/Flashy/actions/workflows/sync-wiki.yml). Direct edits in the GitHub Wiki UI will be overwritten on the next push to `main` — [edit upstream](https://github.com/kidturbo/Flashy/edit/main/wiki/Documentation-Index.md) instead.</sub>
+
 # Documentation Index
 
 All the deep technical documentation lives at [kidturbo.github.io/Flashy](https://kidturbo.github.io/Flashy/), served as styled HTML pages via GitHub Pages.

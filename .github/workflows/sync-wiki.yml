@@ -35,8 +35,18 @@ jobs:
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki-repo
 
       - name: Copy markdown files (additive — preserves wiki-only assets)
+        # README.md is maintainer-only and explicitly excluded — see
+        # wiki/README.md for the why. Anything else in wiki/*.md gets
+        # mirrored.
         run: |
-          cp -v wiki/*.md wiki-repo/
+          find wiki -maxdepth 1 -name '*.md' -not -name 'README.md' -exec cp -v {} wiki-repo/ \;
+
+      - name: Remove orphaned README.md from wiki repo if present
+        # Earlier syncs mirrored README.md too. Now that it's
+        # maintainer-only, drop the stale copy from the wiki repo so
+        # public visitors don't see it.
+        run: |
+          rm -fv wiki-repo/README.md
 
       - name: Commit and push if changed
         run: |
