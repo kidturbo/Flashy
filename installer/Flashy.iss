@@ -11,7 +11,7 @@
 ; Output: dist/Flashy-Tool-Setup-<version>.exe
 
 #define AppName        "Flashy"
-#define AppVersion     "1.5.0"
+#define AppVersion     "1.5.1"
 #define AppPublisher   "kidturbo"
 #define AppURL         "https://github.com/kidturbo/Flashy"
 #define AppExeFolder   "..\dist\Flashy-Tool"

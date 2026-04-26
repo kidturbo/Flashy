@@ -115,7 +115,7 @@
 </div>
 
 <!-- ============================================================ -->
-<h2>Unreleased <span class="date">post-v1.5.0</span></h2>
+<h2>v1.5.1 &mdash; Universal OBD-II diagnostics: CLEARDTC + SCAN FULL <span class="date">2026-04-25</span></h2>
 <div class="card">
     <ul>
         <li><span class="tag tag-added">Added</span> <strong>Universal <code>CLEARDTC</code></strong> &mdash; 3-pass cross-vendor clear: Mode <code>$04</code> broadcast on functional <code>0x7DF</code>, then physical UDS <code>$10 03</code> + <code>$14 FF FF FF</code> per responder, then a GMLAN <code>$28</code>/<code>$A2</code>/<code>$A5</code> broadcast wake-up + <code>$14</code> with <code>$20 returnToNormal</code> cleanup. Bench-verified non-destructive across repeated runs.</li>
