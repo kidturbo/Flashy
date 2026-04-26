@@ -40,6 +40,35 @@ See [Getting Started](Getting-Started) for first-run details.
 
 ---
 
+## T87A Patched Library
+
+`T87A-Patched-Library-v1.zip` — 11 full 4 MB T87A TCM flash images with the 5-patch USBJTAG + HPT unlock recipe pre-applied. Includes the recipe documentation and README.
+
+**Included OSes** (bench status reflects Flashy validation):
+
+| OS PN | Trans | Status |
+|---|---|---|
+| **24288836** | 10L80/10L90 | **Verified** |
+| **24293216** | 10L80/10L90 | **Verified (BAM)** |
+| 24281243 | TBD | Untested |
+| 24283721 | 8L45 (CT6) | Untested |
+| 24285377 | TBD | Untested |
+| 24286913 | TBD | Untested |
+| 24286985 | TBD | Untested (per-OS offsets) |
+| 24288259 | 10L | Untested |
+| 24288574 | TBD | Untested |
+| 24288835 | 8L90 | Untested |
+| 24291283 | 8L90 (CTSV) | Untested |
+
+See [T87A-Unlock-Recipe.html](https://kidturbo.github.io/Flashy/T87A-Unlock-Recipe.html) (also bundled in the zip) for the full catalog with CS1/CS2, CRC32, and cross-OS write compatibility matrix.
+
+**Write path guidance:**
+- JTAG / BAM — cross-OS safe, flash any bin
+- Flashy HS Full Write — **same-OS only** (firmware aborts mismatches in v1.4.5+)
+- Flashy HS Cal Write — same-OS cal edits
+
+---
+
 ## Version History
 
 Each release's changelog is attached to the GitHub release notes. For a full history, see the [Changelog](https://kidturbo.github.io/Flashy/changelog.html) page.

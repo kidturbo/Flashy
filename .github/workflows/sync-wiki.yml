@@ -1,0 +1,54 @@
+name: Sync wiki/ -> GitHub Wiki
+
+# Mirrors markdown files from the main repo's wiki/ folder to the
+# separate GitHub Wiki repo (https://github.com/kidturbo/Flashy/wiki).
+#
+# - Triggers on any push to main that touches wiki/*.md (or this file).
+# - Can also be run manually from the Actions tab.
+# - Uses GITHUB_TOKEN with permissions: contents: write — no PAT needed.
+# - Additive sync: files in the wiki repo that aren't in our wiki/
+#   folder (e.g. binary release assets like T87A-Patched-Library-v1.zip)
+#   are PRESERVED, not deleted.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/sync-wiki.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Clone wiki repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki-repo
+
+      - name: Copy markdown files (additive — preserves wiki-only assets)
+        run: |
+          cp -v wiki/*.md wiki-repo/
+
+      - name: Commit and push if changed
+        run: |
+          cd wiki-repo
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --staged --quiet; then
+            echo "No wiki changes to push."
+          else
+            git commit -m "Sync wiki/ from main @ ${{ github.sha }}" \
+              -m "Automated sync from kidturbo/Flashy main branch."
+            git push
+            echo "Wiki updated."
+          fi
