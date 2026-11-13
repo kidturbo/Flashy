@@ -1,0 +1,17 @@
+{
+  "optional_tool_adaptations": [
+    {
+      "path": "tools/export_table_definitions.py",
+      "source_path": "cruze-e78-research/tools/export_table_definitions.py",
+      "source_sha256": "5bb7f32cfb6aa81f09e4b5d05415f06bcaab20590095b58b8aa01b39bac846e4",
+      "changes": [
+        "Baseline uses E78_PRIVATE_BASELINE/private/original.bin or explicit --source",
+        "Private reference-CSV/Ghidra-trace path requirements replaced with public ledger references and explicit unpublished-evidence limitation",
+        "Output directory created with mode 0700",
+        "build(data), definitions and exact original hash guard unchanged"
+      ],
+      "source_firmware_bundled": false,
+      "trace_assets_bundled": false
+    }
+  ]
+}

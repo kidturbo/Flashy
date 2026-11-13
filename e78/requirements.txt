@@ -1,0 +1,2 @@
+# Core extraction, checksum, worksheet, candidate and plan commands use Python standard library only.
+# No packages need to be installed for the minimal offline workflow.

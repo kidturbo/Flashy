@@ -1,0 +1,64 @@
+{
+  "schema": "flashy-e78-source-integration-v1",
+  "date": "2026-11-12",
+  "upstream": "kidturbo/Flashy",
+  "upstream_revision": "d714d5c473864a812f84e2e8ff0c21224a802976",
+  "portable_core_revision": "0a584b275aefb320f89f9f7a8bf2d52c6ec4e383",
+  "portable_core_manifest_sha256": "bc0068b0ebf284ea80aa590b7f2cec40c5d1e4677e4ea7f8fa6a750c47466179",
+  "source_records": [
+    {
+      "path": "tools/e78_read_workflow.py",
+      "source_path": "cruze-e78-research/tools/e78_read_workflow.py",
+      "source_sha256": "e72dec064e023abe8039fcedc52daef4c98067ff432b77d804bc3d89c3e9ae7b",
+      "changes": "Replace hardware identity import with pure strict decoder; portable license path; no live backend; preserve injected state machine."
+    },
+    {
+      "path": "tools/e78_pedal_abc.py",
+      "source_path": "cruze-e78-research/analysis/tune-draft-20261112/build_draft.py",
+      "source_sha256": "42c4d5e8dfa73c9770d3361309743d596afe31d995909d949121145430732c5a",
+      "changes": "Portable profile/metadata paths; reconstruct 108 records from exact original instead of reading private 103-record value export. Arithmetic/guards retained; candidate hash compared in integration tests."
+    },
+    {
+      "path": "tests/test_e78_read_workflow_offline.py",
+      "source_path": "cruze-e78-research/tools/test_e78_read_workflow_offline.py",
+      "source_sha256": "208bcf7b33f7a9118a8efe7d740dcddae4a7336e404313ab6c6a14c8aade602c",
+      "changes": "Optional external hash-pinned kernel; invented all-zero identity; no production guard bypass."
+    },
+    {
+      "path": "tests/test_e78_read_protocol_offline.py",
+      "source_path": "cruze-e78-research/tools/test_e78_read_protocol_offline.py",
+      "source_sha256": "c088c5152bc4202e828177395dfa66bb16eaac106da641076fa92a9eb0e3d23c",
+      "changes": "Optional LZ4 dependency with explicit compressed-test skips."
+    },
+    {
+      "path": "tests/test_pedal_abc_offline.py",
+      "source_path": "cruze-e78-research/analysis/tune-draft-20261112/test_draft.py",
+      "source_sha256": "a105bf7c0706081e56421aa53aa1716a379a8768c216778a320fd58782612794",
+      "changes": "Portable import and profile; external private baseline; known candidate digest check."
+    }
+  ],
+  "new_authored_components": [
+    "tools/e78_identity.py",
+    "tools/export_research_catalog.py",
+    "tests/test_research_catalog_offline.py",
+    "tests/test_pedal_profile_offline.py"
+  ],
+  "catalog": {
+    "source_sha256": "e426772f00eb52821577420b19bb093f8847e745e3e66946f47654dabc4e62fc",
+    "published_metadata_sha256": "6db2bcdbddfc9434aec467457d42920ae49279a70747212026656af146de97ad",
+    "changes": "Whitelisted addresses, dimensions, encoding, units, byte hashes and qualifications; omit stock cell arrays and nested private source metadata."
+  },
+  "stock_loader_source": {
+    "repository": "https://github.com/FL0WL0W/ESP32-ECU-Flasher",
+    "revision": "aa60be5f194e0a10e9be2af068166965ba99f276",
+    "license": "ESP32-ECU-Flasher-LICENSE"
+  },
+  "kernel_reference": {
+    "repository": "https://github.com/FL0WL0W/KernelMPC5566",
+    "revision": "320adc3a18985aff5614f2cd2ce5fc40ac001456",
+    "sha256": "f694f67e639db1e4465797545c3cca4b00883bd5f068ae2a3bf3dcd08d97c861",
+    "binary_included": false
+  },
+  "formatting": "Black25.11.0 applied to Python source/tests/scripts/examples. Historical source hashes identify inputs, not byte-identical formatted outputs; release-manifest.json pins shipped bytes.",
+  "scope": "GPL-3.0-or-later host component; no linking into MIT Feather firmware; no firmware, logs, credentials, or live backend shipped."
+}

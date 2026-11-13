@@ -1,0 +1,3 @@
+# Documentation and evidence
+
+Inherit ../AGENTS.md. Write portable relative paths and public-safe summaries. Separate a publicly shipped artifact, an upstream source, a private retained evidence record, and a reproduction plan. Private-source hashes support traceability but do not make private evidence independently accessible. Record source paths/hashes and evidence class in evidence-ledger.json. Do not claim exhaustiveness beyond the documented software/workstreams or universal E78 compatibility. Reconcile superseded findings explicitly. Never copy a private compiled bundle or diagnostic log into public prose. Check links and release validation after edits.

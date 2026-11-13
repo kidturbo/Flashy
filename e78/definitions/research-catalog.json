@@ -1,0 +1,2951 @@
+{
+  "schema": "e78-research-definitions-v1",
+  "original_sha256": "3b9b58421977ae2a5fb0f5d4d1bf71702cd97922109a215cab1ba9405e3920ba",
+  "os": "12644082",
+  "engine_calibration": "55581437",
+  "source_catalog_sha256": "e426772f00eb52821577420b19bb093f8847e745e3e66946f47654dabc4e62fc",
+  "records": [
+    {
+      "id": "axis_04E4F0",
+      "name": "Boost-limit temperature input",
+      "kind": "axis",
+      "address": "04E4F0",
+      "byte_length": 28,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        7
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "degC",
+      "byte_sha256": "f0e3f381ea28dc1eec87562d2097c140c4c9aa87faba1aad1fe49d34dcca7aff",
+      "axes": [],
+      "unit_qualification": "ADC lookup and +273.15 conversion; physical sensor location unverified",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "boost_pressure_limit",
+      "name": "Maximum boost-control pressure limit",
+      "kind": "table",
+      "address": "04DFB4",
+      "byte_length": 28,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1,
+        7
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "kPa absolute",
+      "byte_sha256": "070a56b99c6d2f6d8e41993e21824815092673524758ed03839169297232700d",
+      "axes": [
+        null,
+        "axis_04E4F0"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_053B10",
+      "name": "Lowest possible ethanol percentage (reference role)",
+      "kind": "axis",
+      "address": "053B10",
+      "byte_length": 16,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        4
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "%",
+      "byte_sha256": "ac00364725fd8d8a728cd98aebd80b43c3ae5542d615cdbe50b79ff2d5ac02e3",
+      "axes": [],
+      "unit_qualification": "Percent is code-derived; ethanol name from reference. ROM 0531A8=0 selects zero producer",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_053AD0",
+      "name": "Engine speed",
+      "kind": "axis",
+      "address": "053AD0",
+      "byte_length": 64,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        16
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "rpm",
+      "byte_sha256": "0cb3eb51f4ddc0b4c89c9e5fc9234b6b418276efab5586678769a03e3426e82c",
+      "axes": [],
+      "unit_qualification": "Own period/rate producer; sibling rate corroborated by CAN 0C9 quarter-RPM packing",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "indicated_peak_torque",
+      "name": "Indicated peak engine torque",
+      "kind": "table",
+      "address": "0534A4",
+      "byte_length": 256,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        4,
+        16
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "Nm",
+      "byte_sha256": "d7914d2be3e8237a5951ce20dee061647dcb94b25402f2a245bb1b81a52d7b99",
+      "axes": [
+        "axis_053B10",
+        "axis_053AD0"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "maximum_brake_torque",
+      "name": "Maximum brake torque limit",
+      "kind": "table",
+      "address": "0535A4",
+      "byte_length": 256,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        4,
+        16
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "Nm",
+      "byte_sha256": "3bf27b8a81779e451b15bc6ebb137b31e8c914887237646e2ad38bf3b23f077c",
+      "axes": [
+        "axis_053B10",
+        "axis_053AD0"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "overboost_torque",
+      "name": "Overboost indicated torque limit",
+      "kind": "table",
+      "address": "053464",
+      "byte_length": 64,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1,
+        16
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "Nm",
+      "byte_sha256": "3cebcee1eb745ff737414564af7f0ba9c5cf9f40743c99e8162213cecf35bd8a",
+      "axes": [
+        null,
+        "axis_053AD0"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_047C1C",
+      "name": "Pedal request",
+      "kind": "axis",
+      "address": "047C1C",
+      "byte_length": 68,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "%",
+      "byte_sha256": "d160c710ad0f16bf03d88c2d6d1b0f55000337dbc385b120e0bb64ad85f355ca",
+      "axes": [],
+      "unit_qualification": "Own percentage producer, CAN pedal field, alternate inverse interpolation with 0..100 clamp",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_047D0C",
+      "name": "Selected vehicle-speed input",
+      "kind": "axis",
+      "address": "047D0C",
+      "byte_length": 68,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "km/h",
+      "byte_sha256": "c230c3d6222b693d9a2b6162fc019ac593fa8063def0682eca471252d8a9ab51",
+      "axes": [],
+      "unit_qualification": "ROM 0465B5=0 direct branch; received 0F9 source and tire conversion corroborated by both saved drives",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "pedal_a",
+      "name": "Pedal progression A",
+      "kind": "table",
+      "address": "046944",
+      "byte_length": 1156,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        17,
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "kW",
+      "byte_sha256": "b0fbc6de9fc04391739c80451f58a99c632ea9e792dae0ad87fd2ef1ea89e9bb",
+      "axes": [
+        "axis_047C1C",
+        "axis_047D0C"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "pedal_b",
+      "name": "Pedal progression B",
+      "kind": "table",
+      "address": "046DC8",
+      "byte_length": 1156,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        17,
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "kW",
+      "byte_sha256": "b0fbc6de9fc04391739c80451f58a99c632ea9e792dae0ad87fd2ef1ea89e9bb",
+      "axes": [
+        "axis_047C1C",
+        "axis_047D0C"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "pedal_c",
+      "name": "Pedal progression C",
+      "kind": "table",
+      "address": "04724C",
+      "byte_length": 1156,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        17,
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "kW",
+      "byte_sha256": "b0fbc6de9fc04391739c80451f58a99c632ea9e792dae0ad87fd2ef1ea89e9bb",
+      "axes": [
+        "axis_047C1C",
+        "axis_047D0C"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "pedal_fallback",
+      "name": "Pedal progression fallback",
+      "kind": "table",
+      "address": "0476D0",
+      "byte_length": 1156,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        17,
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "kW",
+      "byte_sha256": "55e584cca65711a106b698adebbcaa46412858cd1e8d3eb156048e991156223f",
+      "axes": [
+        "axis_047C1C",
+        "axis_047D0C"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_047B54",
+      "name": "Raw pedal-map power",
+      "kind": "axis",
+      "address": "047B54",
+      "byte_length": 68,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "kW",
+      "byte_sha256": "ed91f1c2691e0774219062a8e87f48d017bcd217493880e6326601001c48cad7",
+      "axes": [],
+      "unit_qualification": "Same mode-1 power path; reference capability-scalar row explicitly describes power",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_047D50",
+      "name": "Barometric pressure",
+      "kind": "axis",
+      "address": "047D50",
+      "byte_length": 20,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        5
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "kPa absolute",
+      "byte_sha256": "08f0aae856846dabb8001e86665041c12cb12ed0d7f7195569c86769f08bae62",
+      "axes": [],
+      "unit_qualification": "Own x256 conversion -> r14-5934 -> CAN 4C1 byte1; source scale 0.5 kPa",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "pedal_barometric_multiplier",
+      "name": "Pedal power barometric multiplier",
+      "kind": "table",
+      "address": "046664",
+      "byte_length": 170,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        17,
+        5
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 3.0517578125e-05,
+      "offset": 0,
+      "unit": "ratio",
+      "byte_sha256": "015b7be7ac207b28bde8b4887a381325f0c268bc2d20c10bfc138740bb1ea87a",
+      "axes": [
+        "axis_047B54",
+        "axis_047D50"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_047B98",
+      "name": "Pedal request",
+      "kind": "axis",
+      "address": "047B98",
+      "byte_length": 36,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "%",
+      "byte_sha256": "925d1bc70299eca30de6b09b5258d0d0f59691ace2a49a7bc050582f9e39d4d6",
+      "axes": [],
+      "unit_qualification": "Caller 11C568..11C574 supplies pedal; baseline caller 11C678..11C684 supplies zero",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "axis_047CE8",
+      "name": "Filtered engine speed",
+      "kind": "axis",
+      "address": "047CE8",
+      "byte_length": 36,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1.0,
+      "offset": 0,
+      "unit": "rpm",
+      "byte_sha256": "89700b4289af7846f4b2f8bce9a723f4e6538f20912795a248dafda5cc380997",
+      "axes": [],
+      "unit_qualification": "ROM 0465B6=1 selects RPM rather than vehicle speed in 11BD94 / 11C19C",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "pedal_low_speed_multiplier",
+      "name": "Low-speed pedal power modifier (reference name)",
+      "kind": "table",
+      "address": "04675C",
+      "byte_length": 162,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        9,
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.03125,
+      "offset": 0,
+      "unit": "ratio",
+      "byte_sha256": "2d12e55858c3aa909eeb959dac51c13ccd13cf05c43ea136c374be32a9f78dde",
+      "axes": [
+        "axis_047B98",
+        "axis_047CE8"
+      ],
+      "unit_qualification": "Static definition; preserve source limitations and input qualifications.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_rpm_related_entry_delay",
+      "name": "rpm related entry delay",
+      "kind": "table",
+      "address": "0795AC",
+      "byte_length": 18,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00625,
+      "offset": 0,
+      "unit": "nominal seconds",
+      "byte_sha256": "5f6e04d6b053e988fb8c80e27365a9bd0e1ec40f4da7a637ea33c27b648f97d9",
+      "axes": [],
+      "header_address": "0795AA",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "Code-supported software convention; physical clock/signal validation incomplete.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_mode3_entry_delay",
+      "name": "mode3 entry delay",
+      "kind": "table",
+      "address": "0795C4",
+      "byte_length": 108,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        6,
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00625,
+      "offset": 0,
+      "unit": "nominal seconds",
+      "byte_sha256": "f720229c77859ef5659ca539af8b58f4dc321e67e76078b4c4994cb94ecd879c",
+      "axes": [
+        null,
+        "dfco_filtered_speed_difference_axis"
+      ],
+      "header_address": "0795C0",
+      "header_dimensions": [
+        9,
+        6
+      ],
+      "unit_qualification": "Code-supported software convention; physical clock/signal validation incomplete.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_mode2_entry_delay",
+      "name": "mode2 entry delay",
+      "kind": "table",
+      "address": "079634",
+      "byte_length": 108,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        6,
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00625,
+      "offset": 0,
+      "unit": "nominal seconds",
+      "byte_sha256": "1692b51fc281eb7c0a427dc138d99b6f39fdc6f87c4c7a87a11ce650050f4597",
+      "axes": [
+        null,
+        "dfco_filtered_speed_difference_axis"
+      ],
+      "header_address": "079630",
+      "header_dimensions": [
+        9,
+        6
+      ],
+      "unit_qualification": "Code-supported software convention; physical clock/signal validation incomplete.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_filtered_speed_difference_axis",
+      "name": "filtered speed difference axis",
+      "kind": "axis",
+      "address": "0798E0",
+      "byte_length": 18,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw signed difference",
+      "byte_sha256": "25fedeee9f13e114eaa622a7a13137647bafe8725e10cc237765df2f6dcc5c19",
+      "axes": [],
+      "header_address": "0798DE",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "Raw signed speed difference; nominal factor1/8 RPM is not independently corroborated for received speed.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_received_transmission_oil_temperature_axis",
+      "name": "received transmission oil temperature axis",
+      "kind": "axis",
+      "address": "0798F4",
+      "byte_length": 10,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        5
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0078125,
+      "offset": 0,
+      "unit": "degC",
+      "byte_sha256": "408698808f4697d90de447477e716b8b5155eb595a449bdf818e9e19d4146756",
+      "axes": [],
+      "header_address": "0798F2",
+      "header_dimensions": [
+        5
+      ],
+      "unit_qualification": "Code-supported software convention; physical clock/signal validation incomplete.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_common_entry_delay_offset",
+      "name": "common entry delay offset",
+      "kind": "table",
+      "address": "079900",
+      "byte_length": 10,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        5
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00625,
+      "offset": 0,
+      "unit": "nominal seconds",
+      "byte_sha256": "01d448afd928065458cf670b60f5a594d735af0172c8d67f22a81680132681ca",
+      "axes": [
+        "dfco_received_transmission_oil_temperature_axis"
+      ],
+      "header_address": "0798FE",
+      "header_dimensions": [
+        5
+      ],
+      "unit_qualification": "Code-supported software convention; physical clock/signal validation incomplete.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_filtered_rate_axis",
+      "name": "filtered rate axis",
+      "kind": "axis",
+      "address": "07990C",
+      "byte_length": 18,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.125,
+      "offset": 0,
+      "unit": "RPM per nominal second",
+      "byte_sha256": "98594ae3aa7c71c14427d181c8dda1a749dca86c72185e3df590e7dea2a3ed43",
+      "axes": [],
+      "header_address": "07990A",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "nominal milliseconds under the configured128MHz/4MHz convention; not physically measured",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_qualification_speed_offset",
+      "name": "qualification speed offset",
+      "kind": "table",
+      "address": "079920",
+      "byte_length": 18,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw",
+      "byte_sha256": "d17d95850fd7bfc4cd6649d8520643ad53cc452b97577b48951d19ec1efc806d",
+      "axes": [
+        "dfco_filtered_rate_axis"
+      ],
+      "header_address": "07991E",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "Output remains raw speed-threshold counts; do not apply the input-axis factor.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_torque_ramp_multiplier",
+      "name": "torque ramp multiplier",
+      "kind": "table",
+      "address": "079936",
+      "byte_length": 18,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00048828125,
+      "offset": 0,
+      "unit": "ratio",
+      "byte_sha256": "1f987960cf9fc6191ccc39a135df73a93dbdcaf18b8cff46eae1d192edd1250f",
+      "axes": [
+        "dfco_filtered_rate_axis"
+      ],
+      "header_address": "079934",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "Code-supported software convention; physical clock/signal validation incomplete.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_default_delay",
+      "name": "Default mode delay",
+      "kind": "scalar",
+      "address": "0795BE",
+      "byte_length": 2,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00625,
+      "offset": 0,
+      "unit": "nominal seconds",
+      "byte_sha256": "eaf132c40462dd25ee5be6c7944953c92f544953f110bb3a6630b9cb34f13e17",
+      "axes": [],
+      "unit_qualification": "Clock convention only; physical delay not measured.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_gear_index",
+      "name": "DFCO bounded gear-index mapping",
+      "kind": "index_array",
+      "address": "079782",
+      "byte_length": 22,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        11
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1,
+      "offset": 0,
+      "unit": "index",
+      "byte_sha256": "46347325112e742b27ca7131e1fdb60547c2ec0c27563ce9da8344e5057ac64b",
+      "axes": [],
+      "unit_qualification": "Recovered11-entry extent; adjacent bytes are not additional entries.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_request_family",
+      "name": "request family",
+      "kind": "scalar",
+      "address": "04AF8C",
+      "byte_length": 2,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "96a296d224f285c67bee93c30f8a309157f0daa35dc5b87e410b78630a09cfc7",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_gate_source",
+      "name": "gate source",
+      "kind": "scalar",
+      "address": "021606",
+      "byte_length": 1,
+      "storage": "uint8",
+      "struct_code": "B",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_qualification_grace_counts",
+      "name": "qualification grace counts",
+      "kind": "scalar",
+      "address": "0796B4",
+      "byte_length": 2,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "96a296d224f285c67bee93c30f8a309157f0daa35dc5b87e410b78630a09cfc7",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_exit_latch_clear_threshold",
+      "name": "exit latch clear threshold",
+      "kind": "scalar",
+      "address": "079700",
+      "byte_length": 2,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "b0d7a468e6256cb94d8b85dd58a78f3a244003f7e553bfe2c020d84df69c5a9a",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_entry_bypass_threshold",
+      "name": "entry bypass threshold",
+      "kind": "scalar",
+      "address": "07973C",
+      "byte_length": 2,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "85fc7c571e9936de760607ca686e26fd3371168d23414d09be9cc78c473833be",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_special_mode_floor_switch",
+      "name": "special mode floor switch",
+      "kind": "scalar",
+      "address": "0798A0",
+      "byte_length": 1,
+      "storage": "uint8",
+      "struct_code": "B",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_exit_hold_gap_limit",
+      "name": "exit hold gap limit",
+      "kind": "scalar",
+      "address": "07989C",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "9dc1b62d60acff118f222dc22cb76a1c7e9f2fcc1ae7d16c56861eb0301bd59a",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_exit_hold_timer_limit",
+      "name": "exit hold timer limit",
+      "kind": "scalar",
+      "address": "0798A2",
+      "byte_length": 2,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "raw; see role and qualification",
+      "byte_sha256": "474f2af47544e9c7ce4338cabd43c5ca1c26432b7300ce387406157ea433891f",
+      "axes": [],
+      "unit_qualification": "Exact original value and traced role; no physical unit assigned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_exit_delay_by_index",
+      "name": "DFCO re-entry countdown by index",
+      "kind": "index_array",
+      "address": "0796D2",
+      "byte_length": 22,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        11
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.05,
+      "offset": 0,
+      "unit": "nominal seconds",
+      "byte_sha256": "8020f5f07075e439f48e49386ecdedae772b40e73f18cf5975e0d55aea0a5624",
+      "axes": [],
+      "unit_qualification": "50 ms/count engineering unit; context5 subtracts2 every nominal100 ms. Odd counts round up to a whole countdown invocation. Not measured wall time or total re-entry latency.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_resumption_count_addition",
+      "name": "resumption_scaled_count_table_with_header",
+      "kind": "table",
+      "address": "07994C",
+      "byte_length": 18,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.000244140625,
+      "offset": 0,
+      "unit": "enabled-count addition",
+      "byte_sha256": "2904284f00ea39f33dee4fd63ae26e1f0af364abe4bf7efcf13f977752ae9e90",
+      "axes": [
+        "dfco_filtered_rate_axis"
+      ],
+      "header_address": "07994A",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "Code-derived fixed-point output; allocation and actual output remain state/source conditioned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_exit_hold_ratio0",
+      "name": "exit_hold_ratio_table0_with_header",
+      "kind": "table",
+      "address": "079874",
+      "byte_length": 18,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 3.0517578125e-05,
+      "offset": 0,
+      "unit": "ratio",
+      "byte_sha256": "aade2b3ff94a67c38b6ec466446517d136a64aaefed0779b68bb480276ddf4a6",
+      "axes": [
+        "dfco_filtered_rate_axis"
+      ],
+      "header_address": "079872",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "Code-derived fixed-point output; allocation and actual output remain state/source conditioned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "dfco_exit_hold_ratio1",
+      "name": "exit_hold_ratio_table1_with_header",
+      "kind": "table",
+      "address": "079888",
+      "byte_length": 18,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 3.0517578125e-05,
+      "offset": 0,
+      "unit": "ratio",
+      "byte_sha256": "60daa3a5f7dbfa200f8c82840ecf5b42640b70f3b7218a4c6bbd67db542e75a4",
+      "axes": [
+        "dfco_filtered_rate_axis"
+      ],
+      "header_address": "079886",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "Code-derived fixed-point output; allocation and actual output remain state/source conditioned.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_normal_minimum",
+      "name": "Selected normal minimum-spark map",
+      "kind": "table",
+      "address": "07895E",
+      "byte_length": 1122,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        33,
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0078125,
+      "offset": 0,
+      "unit": "degree",
+      "byte_sha256": "9c820e3c1f63a1213dcec2d0d9429b67c0d917859258c811e5c7de022c7c6edf",
+      "axes": [
+        "spark_charge_axis",
+        "spark_rate_axis"
+      ],
+      "header_address": "07895A",
+      "header_dimensions": [
+        17,
+        33
+      ],
+      "unit_qualification": "raw/128 numerical conversion verified; degree interpretation supported by spark path, not measured ignition timing.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_rate_axis",
+      "name": "Selected engine-rate axis for minimum-spark map",
+      "kind": "axis",
+      "address": "0784AC",
+      "byte_length": 34,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.125,
+      "offset": 0,
+      "unit": "nominal RPM",
+      "byte_sha256": "e27a14a30158f443123ba9bd300d9a7c8dbaa680d20b0e93fb2a2950e304750f",
+      "axes": [],
+      "header_address": "0784AA",
+      "header_dimensions": [
+        17
+      ],
+      "unit_qualification": "Code-supported nominal RPM convention: selected interval-derived sources use 60000/interval divisions and the configured nominal4MHz timebase. Event states can select zero or retain a prior estimate. Physical clock, synchronized sensor validity and live source selection are not measured.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_charge_axis",
+      "name": "Selected air-charge axis for minimum-spark map",
+      "kind": "axis",
+      "address": "077360",
+      "byte_length": 66,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        33
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.125,
+      "offset": 0,
+      "unit": "nominal mg",
+      "byte_sha256": "7503f68808c225784d1c6e9a25a947f42e54a7872cd6f5365ef1c3fd6c685cc9",
+      "axes": [],
+      "header_address": "07735E",
+      "header_dimensions": [
+        33
+      ],
+      "unit_qualification": "Software nominal mg convention: own24D8->2510 CAN1EF packing and pinned DBC g/s label anchor flow; original flow-times-nominal-ms and selected/filter publication preserve mass units. No per-cylinder label, physical sensor/clock accuracy or complete model validation.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_fallback_minimum",
+      "name": "Fallback spark minimum, directly indexed by scaled engine rate",
+      "kind": "table",
+      "address": "078DC2",
+      "byte_length": 66,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        33
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0078125,
+      "offset": 0,
+      "unit": "degree",
+      "byte_sha256": "da9a9571646a1aa2edf0e965bad5fffd67712caf7c3886761be43dc98d81d69c",
+      "axes": [],
+      "header_address": "078DC0",
+      "header_dimensions": [
+        33
+      ],
+      "unit_qualification": "raw/128 numerical conversion verified; degree interpretation supported by spark path, not measured ignition timing.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_temperature_offset",
+      "name": "Temperature-related spark offset; exact input scale still open",
+      "kind": "table",
+      "address": "078E08",
+      "byte_length": 18,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        9
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0078125,
+      "offset": 0,
+      "unit": "degree",
+      "byte_sha256": "4ad507fdefc00f31173842ae1b9f0edfe86b33a2ee1c48da4f673c10b27911cc",
+      "axes": [],
+      "header_address": "078E06",
+      "header_dimensions": [
+        9
+      ],
+      "unit_qualification": "raw/128 numerical conversion verified; degree interpretation supported by spark path, not measured ignition timing.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_axis_04313C",
+      "name": "phase-related input; physical convention unresolved",
+      "kind": "axis",
+      "address": "04313C",
+      "byte_length": 16,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        4
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1,
+      "offset": 0,
+      "unit": "phase-related input; physical convention unresolved",
+      "byte_sha256": "34935e68d2c72bfb1d97a89c04c11fa34c47ec423d076c500d45059fbb506931",
+      "axes": [],
+      "unit_qualification": "Phase physical convention unresolved; RPM supported by own rate producer.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_axis_043128",
+      "name": "phase-related input; physical convention unresolved",
+      "kind": "axis",
+      "address": "043128",
+      "byte_length": 20,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        5
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1,
+      "offset": 0,
+      "unit": "phase-related input; physical convention unresolved",
+      "byte_sha256": "4ffe0586a9168436f62e32be0058112787ec25147ff845a518b5b0faa4614a69",
+      "axes": [],
+      "unit_qualification": "Phase physical convention unresolved; RPM supported by own rate producer.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_axis_0430F8",
+      "name": "RPM interpretation corroborated by own rate producer",
+      "kind": "axis",
+      "address": "0430F8",
+      "byte_length": 48,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 1,
+      "offset": 0,
+      "unit": "RPM interpretation corroborated by own rate producer",
+      "byte_sha256": "ab277916ce880dcb467e8ada77eb6ccd62f427dab58842a3fc9476959706cf67",
+      "axes": [],
+      "unit_qualification": "Phase physical convention unresolved; RPM supported by own rate producer.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_0_0",
+      "name": "primary constant endpoint0",
+      "kind": "coefficient_array",
+      "address": "040034",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0625,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "6d65e0d1019cd74dc948133ff4566e73ca096d6d90ad80fb78bccb0e0e10e6b1",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_0_1",
+      "name": "primary constant endpoint1",
+      "kind": "coefficient_array",
+      "address": "040214",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0625,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "763507966e062f4c78e156438cfce073bb929b760eb68525f596cf5c13de1702",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_1_0",
+      "name": "primary spark endpoint0",
+      "kind": "coefficient_array",
+      "address": "0403F4",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.001953125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "f6bb86c4a613ad746b4d0f4117995fc660861a2090c21ed6ca5e0bb6c0c2c94a",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_1_1",
+      "name": "primary spark endpoint1",
+      "kind": "coefficient_array",
+      "address": "0405D4",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.001953125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "82d7b2f58a1abf1c925c86a1745782df9a8bde78a4a49b7e767cc3a0083a5583",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_2_0",
+      "name": "primary spark_squared endpoint0",
+      "kind": "coefficient_array",
+      "address": "0407B4",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 6.103515625e-05,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "16347b4c92afa85a82d03985c7f928abcc3b7c7ae8a35c4fe187590162e52c62",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_2_1",
+      "name": "primary spark_squared endpoint1",
+      "kind": "coefficient_array",
+      "address": "040994",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 6.103515625e-05,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "017762b5f83ca8b22c2ef4af57cde04d4b8cdb81b735f09e96be30a1adba2325",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_3_0",
+      "name": "primary spark_times_charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "040B74",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 7.62939453125e-06,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "61f1b701a5baf80f6d2ce94207e100a39cc1ac022e676fb1fcb074c86fc64fbe",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_3_1",
+      "name": "primary spark_times_charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "040D54",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 7.62939453125e-06,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "79415ca14f5acf3b5b68d4398762b3d833c90d0b0fd080d63a8f3d7afe9df52c",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_4_0",
+      "name": "primary spark_squared_times_charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "040F34",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 2.384185791015625e-07,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "095d8f7a363938e49c9300dacaff0a4df3bb007860ca15ba544f37993fd1a975",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_4_1",
+      "name": "primary spark_squared_times_charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "041114",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 2.384185791015625e-07,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "e36232c81754ff767689f8edd35cc59557a7ee52681582bd04475ada03683292",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_5_0",
+      "name": "primary charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "0412F4",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00048828125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "90ec9b29dc08d86498fe5eac8a1ea4fd9aa664554ff65f453d6214631b2b7932",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_5_1",
+      "name": "primary charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "0414D4",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00048828125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "2463417514c9840d55afbd83b43380bf98a46eef8763193f7fdaaabc018061fb",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_6_0",
+      "name": "primary charge_squared endpoint0",
+      "kind": "coefficient_array",
+      "address": "0416B4",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 5.960464477539063e-08,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "8925b65a562272b0b44c8d406844a4cedb18ea42fb22c0d13c8659e76b5e3b1e",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_primary_6_1",
+      "name": "primary charge_squared endpoint1",
+      "kind": "coefficient_array",
+      "address": "041894",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 5.960464477539063e-08,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "ca66153acf4490467d59bf767e8c9394f9213363577832a6578639b82a375a1d",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_0_0",
+      "name": "secondary constant endpoint0",
+      "kind": "coefficient_array",
+      "address": "04315C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0625,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "6d65e0d1019cd74dc948133ff4566e73ca096d6d90ad80fb78bccb0e0e10e6b1",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_0_1",
+      "name": "secondary constant endpoint1",
+      "kind": "coefficient_array",
+      "address": "04333C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0625,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "763507966e062f4c78e156438cfce073bb929b760eb68525f596cf5c13de1702",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_1_0",
+      "name": "secondary spark endpoint0",
+      "kind": "coefficient_array",
+      "address": "04351C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.001953125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "f6bb86c4a613ad746b4d0f4117995fc660861a2090c21ed6ca5e0bb6c0c2c94a",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_1_1",
+      "name": "secondary spark endpoint1",
+      "kind": "coefficient_array",
+      "address": "0436FC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.001953125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "82d7b2f58a1abf1c925c86a1745782df9a8bde78a4a49b7e767cc3a0083a5583",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_2_0",
+      "name": "secondary spark_squared endpoint0",
+      "kind": "coefficient_array",
+      "address": "0438DC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 6.103515625e-05,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "16347b4c92afa85a82d03985c7f928abcc3b7c7ae8a35c4fe187590162e52c62",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_2_1",
+      "name": "secondary spark_squared endpoint1",
+      "kind": "coefficient_array",
+      "address": "043ABC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 6.103515625e-05,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "017762b5f83ca8b22c2ef4af57cde04d4b8cdb81b735f09e96be30a1adba2325",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_3_0",
+      "name": "secondary spark_times_charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "043C9C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 7.62939453125e-06,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "61f1b701a5baf80f6d2ce94207e100a39cc1ac022e676fb1fcb074c86fc64fbe",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_3_1",
+      "name": "secondary spark_times_charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "043E7C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 7.62939453125e-06,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "79415ca14f5acf3b5b68d4398762b3d833c90d0b0fd080d63a8f3d7afe9df52c",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_4_0",
+      "name": "secondary spark_squared_times_charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "04405C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 2.384185791015625e-07,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "095d8f7a363938e49c9300dacaff0a4df3bb007860ca15ba544f37993fd1a975",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_4_1",
+      "name": "secondary spark_squared_times_charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "04423C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 2.384185791015625e-07,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "e36232c81754ff767689f8edd35cc59557a7ee52681582bd04475ada03683292",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_5_0",
+      "name": "secondary charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "04441C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00048828125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "90ec9b29dc08d86498fe5eac8a1ea4fd9aa664554ff65f453d6214631b2b7932",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_5_1",
+      "name": "secondary charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "0445FC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00048828125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "2463417514c9840d55afbd83b43380bf98a46eef8763193f7fdaaabc018061fb",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_6_0",
+      "name": "secondary charge_squared endpoint0",
+      "kind": "coefficient_array",
+      "address": "0447DC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 5.960464477539063e-08,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "8925b65a562272b0b44c8d406844a4cedb18ea42fb22c0d13c8659e76b5e3b1e",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_secondary_6_1",
+      "name": "secondary charge_squared endpoint1",
+      "kind": "coefficient_array",
+      "address": "0449BC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 5.960464477539063e-08,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "ca66153acf4490467d59bf767e8c9394f9213363577832a6578639b82a375a1d",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_0_0",
+      "name": "conditional_alternate constant endpoint0",
+      "kind": "coefficient_array",
+      "address": "047ECC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0625,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "80ae05942047ef17c65f9f0774bd2020055d0174a86a37aceb4aedb831c15a2e",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_0_1",
+      "name": "conditional_alternate constant endpoint1",
+      "kind": "coefficient_array",
+      "address": "0480AC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.0625,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "80ae05942047ef17c65f9f0774bd2020055d0174a86a37aceb4aedb831c15a2e",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_1_0",
+      "name": "conditional_alternate spark endpoint0",
+      "kind": "coefficient_array",
+      "address": "04828C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.001953125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "251bd265ca45508952121685e3389c9c3b907d3ecd58bc76d15017b897efab3f",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_1_1",
+      "name": "conditional_alternate spark endpoint1",
+      "kind": "coefficient_array",
+      "address": "04846C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.001953125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "251bd265ca45508952121685e3389c9c3b907d3ecd58bc76d15017b897efab3f",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_2_0",
+      "name": "conditional_alternate spark_squared endpoint0",
+      "kind": "coefficient_array",
+      "address": "04864C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 6.103515625e-05,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "651f215c76360a20b7ea9e35259ecb6e32a6c53089b7d490876e0b09571e0535",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_2_1",
+      "name": "conditional_alternate spark_squared endpoint1",
+      "kind": "coefficient_array",
+      "address": "04882C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 6.103515625e-05,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "651f215c76360a20b7ea9e35259ecb6e32a6c53089b7d490876e0b09571e0535",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_3_0",
+      "name": "conditional_alternate spark_times_charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "048A0C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 7.62939453125e-06,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "8113eac128e58c9a1b277e11ea99651f5feed2095b51d7f856cc7d9e56f0859a",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_3_1",
+      "name": "conditional_alternate spark_times_charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "048BEC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 7.62939453125e-06,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "8113eac128e58c9a1b277e11ea99651f5feed2095b51d7f856cc7d9e56f0859a",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_4_0",
+      "name": "conditional_alternate spark_squared_times_charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "048DCC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 2.384185791015625e-07,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "be994e88d05f8ca8006df4be74fe191708af9b29e697c056a622da13c4dbf181",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_4_1",
+      "name": "conditional_alternate spark_squared_times_charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "048FAC",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 2.384185791015625e-07,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "be994e88d05f8ca8006df4be74fe191708af9b29e697c056a622da13c4dbf181",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_5_0",
+      "name": "conditional_alternate charge endpoint0",
+      "kind": "coefficient_array",
+      "address": "04918C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00048828125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "a9378d6e5d0a34c7cee39a1e5bf41e844eff6b4532bf2446fd93ad6ef8fa0137",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_5_1",
+      "name": "conditional_alternate charge endpoint1",
+      "kind": "coefficient_array",
+      "address": "04936C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.00048828125,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "a9378d6e5d0a34c7cee39a1e5bf41e844eff6b4532bf2446fd93ad6ef8fa0137",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_6_0",
+      "name": "conditional_alternate charge_squared endpoint0",
+      "kind": "coefficient_array",
+      "address": "04954C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 5.960464477539063e-08,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "53cbda9203790e3ba83ba6eaf145683e251db2a25439d51a15923436856defbd",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_conditional_alternate_6_1",
+      "name": "conditional_alternate charge_squared endpoint1",
+      "kind": "coefficient_array",
+      "address": "04972C",
+      "byte_length": 480,
+      "storage": "int16",
+      "struct_code": "h",
+      "byte_order": "big",
+      "shape": [
+        4,
+        5,
+        12
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 5.960464477539063e-08,
+      "offset": 0,
+      "unit": "model coefficient; physical dimensions qualified",
+      "byte_sha256": "53cbda9203790e3ba83ba6eaf145683e251db2a25439d51a15923436856defbd",
+      "axes": [
+        "model_axis_04313C",
+        "model_axis_043128",
+        "model_axis_0430F8"
+      ],
+      "unit_qualification": "Charge mg interpretation agrees with reference labels and software flow-times-period arithmetic; sensor/clock physical units not independently measured.; Coefficient dimensional units depend on charge and spark conventions; array scales are exact code-derived powers of two.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_052F44",
+      "name": "Model configuration 052F44",
+      "kind": "scalar",
+      "address": "052F44",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "e6d0fa6d482a0ebdedcc1280d5e8cc7682df0ffd48c6ea8c4b15465e4bcacc1f",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_059730",
+      "name": "Model configuration 059730",
+      "kind": "scalar",
+      "address": "059730",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "de620abd6d3615746360c1d15ce3a56291236d37424124054a49d25e947ffc4d",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_04BADC",
+      "name": "Model configuration 04BADC",
+      "kind": "scalar",
+      "address": "04BADC",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "e8ed90c1eadc4cdc681ef61f06f767afc7043be08ecd94c5c2990ed7e560c8f8",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_07AA38",
+      "name": "Model configuration 07AA38",
+      "kind": "scalar",
+      "address": "07AA38",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "de620abd6d3615746360c1d15ce3a56291236d37424124054a49d25e947ffc4d",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_07AA3C",
+      "name": "Model configuration 07AA3C",
+      "kind": "scalar",
+      "address": "07AA3C",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "de620abd6d3615746360c1d15ce3a56291236d37424124054a49d25e947ffc4d",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_07AA40",
+      "name": "Model configuration 07AA40",
+      "kind": "scalar",
+      "address": "07AA40",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "de620abd6d3615746360c1d15ce3a56291236d37424124054a49d25e947ffc4d",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_07AA44",
+      "name": "Model configuration 07AA44",
+      "kind": "scalar",
+      "address": "07AA44",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "fe3ddc91b044dfc5ee07935a7f3e8f4cbe8e4c6af60c9ce5db25c5c81da15178",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_07AA48",
+      "name": "Model configuration 07AA48",
+      "kind": "scalar",
+      "address": "07AA48",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "df62b97a90ebc75cc2c9bcbd4cbbaf8985bf0d1e7ae111c40d8df86df760b4de",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_07AA4C",
+      "name": "Model configuration 07AA4C",
+      "kind": "scalar",
+      "address": "07AA4C",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "1b9e0fe7b740b4e583727aa1c9d27ff8c01491f911d2de0747f8c997ef6b3498",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_05A204",
+      "name": "Model configuration 05A204",
+      "kind": "scalar",
+      "address": "05A204",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "f8d127a5cb92ebb8cf851da80a2b5e8671f466ae38adf5dd3e3fafb146f3bd24",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "model_scalar_05A208",
+      "name": "Model configuration 05A208",
+      "kind": "scalar",
+      "address": "05A208",
+      "byte_length": 4,
+      "storage": "float32",
+      "struct_code": "f",
+      "byte_order": "big",
+      "shape": [
+        1
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": null,
+      "offset": 0,
+      "unit": "See model-input report; no generic scalar unit assigned",
+      "byte_sha256": "959fdd7f2961d7ec6408b5e56c44a5547ad7c3a5008c979800b9d98c510047df",
+      "axes": [],
+      "unit_qualification": "Exact stored float only; different scalar roles must not share an invented unit.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_base_rate_axis",
+      "name": "Base-spark engine-rate axis",
+      "kind": "axis",
+      "address": "073900",
+      "byte_length": 66,
+      "storage": "uint16",
+      "struct_code": "H",
+      "byte_order": "big",
+      "shape": [
+        33
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.125,
+      "offset": 0,
+      "unit": "nominal RPM",
+      "byte_sha256": "b549310c5e8b206a314a7b3835c5c5f41a165fb1852b78c3bb0630ae090837eb",
+      "axes": [],
+      "header_address": "0738FE",
+      "header_count": 33,
+      "unit_qualification": "Same unsigned16 r14-244E rate input as earlier traced nominal RPM/8 convention; actual clock/sensor accuracy not newly measured.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_base_high_octane",
+      "name": "Base spark, reference high-octane role",
+      "kind": "table",
+      "address": "07394D",
+      "byte_length": 1089,
+      "storage": "int8",
+      "struct_code": "b",
+      "byte_order": "big",
+      "shape": [
+        33,
+        33
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.5,
+      "offset": 0,
+      "unit": "nominal degree",
+      "byte_sha256": "98f70b83c5cc67a51571463e00f32e4ad17c57d3ed3b098fa47948c2e70a06fa",
+      "axes": [
+        "spark_charge_axis",
+        "spark_base_rate_axis"
+      ],
+      "header_address": "07394A",
+      "header_dimensions": [
+        33,
+        33
+      ],
+      "precision_byte": 2,
+      "helper": "1D8568",
+      "application_counts_per_stored_count": 64,
+      "application_counts_per_nominal_degree": 128,
+      "unit_qualification": "Signed byte shifted left6 by original helper; existing application raw/128 convention gives0.5 nominal degree. Not measured crank timing.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_base_low_octane",
+      "name": "Base spark, reference low-octane role",
+      "kind": "table",
+      "address": "073FC5",
+      "byte_length": 1089,
+      "storage": "int8",
+      "struct_code": "b",
+      "byte_order": "big",
+      "shape": [
+        33,
+        33
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.5,
+      "offset": 0,
+      "unit": "nominal degree",
+      "byte_sha256": "831d28a9ac66e32822d55e1ba598e3928c9d3405e67cc615acbe6bfbb0f38aab",
+      "axes": [
+        "spark_charge_axis",
+        "spark_base_rate_axis"
+      ],
+      "header_address": "073FC2",
+      "header_dimensions": [
+        33,
+        33
+      ],
+      "precision_byte": 2,
+      "helper": "1D8568",
+      "application_counts_per_stored_count": 64,
+      "application_counts_per_nominal_degree": 128,
+      "unit_qualification": "Signed byte shifted left6 by original helper; existing application raw/128 convention gives0.5 nominal degree. Not measured crank timing.",
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_vcp_primary",
+      "name": "Reference VCP spark contribution",
+      "kind": "table",
+      "address": "07463D",
+      "byte_length": 561,
+      "storage": "int8",
+      "struct_code": "b",
+      "byte_order": "big",
+      "shape": [
+        33,
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.5,
+      "offset": 0,
+      "unit": "nominal degree",
+      "byte_sha256": "ed2ac2ef10874535661b7f0b709ef79cb50fa202abd0a75e5ee63f38339ff2a9",
+      "axes": [
+        "spark_charge_axis",
+        "spark_rate_axis"
+      ],
+      "header_address": "07463A",
+      "header_dimensions": [
+        17,
+        33
+      ],
+      "precision_byte": 2,
+      "application_counts_per_stored_count": 64,
+      "application_counts_per_nominal_degree": 128,
+      "role_qualification": "Reference KtSPRK_phi_Phaser; own lookup and selection verified, not a cam-position target",
+      "axis_binding": {
+        "charge": "Actual normalization through header07735E",
+        "rate": "Actual helper1D8800 with inline raw endpoints3200/54400. Existing0784AC axis is reused only for identical display knots; this function does not read that stored axis.",
+        "upper_normalization": 65535
+      },
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    },
+    {
+      "id": "spark_vcp_mode_2_3",
+      "name": "Alternate VCP spark contribution, numeric modes 2/3",
+      "kind": "table",
+      "address": "074AA5",
+      "byte_length": 561,
+      "storage": "int8",
+      "struct_code": "b",
+      "byte_order": "big",
+      "shape": [
+        33,
+        17
+      ],
+      "layout": "last dimension varies fastest",
+      "factor": 0.5,
+      "offset": 0,
+      "unit": "nominal degree",
+      "byte_sha256": "d69d411b56d3a2b64ee95edb489d83fd913e8dfa12a620656ba2ace261723f6e",
+      "axes": [
+        "spark_charge_axis",
+        "spark_rate_axis"
+      ],
+      "header_address": "074AA2",
+      "header_dimensions": [
+        17,
+        33
+      ],
+      "precision_byte": 2,
+      "application_counts_per_stored_count": 64,
+      "application_counts_per_nominal_degree": 128,
+      "role_qualification": "Own-image alternate pointer; physical mode name remains unresolved",
+      "axis_binding": {
+        "charge": "Actual normalization through header07735E",
+        "rate": "Actual helper1D8800 with inline raw endpoints3200/54400. Existing0784AC axis is reused only for identical display knots; this function does not read that stored axis.",
+        "upper_normalization": 65535
+      },
+      "editable": false,
+      "flash_ready": false,
+      "full_vehicle_validation": false
+    }
+  ],
+  "editable": false,
+  "flash_ready": false,
+  "firmware_values_included": false,
+  "limitations": [
+    "Exact-image research metadata; not a universal E78 definition set.",
+    "No OEM table values, firmware bytes, private captures or identity records are included.",
+    "Selection, physical input qualification and execution scope are documented in docs/research-progress.md.",
+    "The VCP spark rate input uses inline endpoints; the matching stored axis is display-equivalent only."
+  ]
+}

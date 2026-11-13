@@ -1,0 +1,596 @@
+{
+  "schema_version": 1,
+  "title": "E78 research evidence ledger",
+  "recorded_evidence_dates_utc": [
+    "2026-11-09",
+    "2026-11-10",
+    "2026-11-11",
+    "2026-11-12"
+  ],
+  "description": "Public-safe authored summaries refer to private source documents. Paths are provenance labels relative to the originating collection, not public download locations. Source hashes identify document versions; unpublished evidence cannot be independently verified from this ledger alone. Historical source statements are superseded where later records are explicitly cited.",
+  "analyzed_image": {
+    "os": "12644082",
+    "engine_operation_calibration": "55581437",
+    "bytes": 3145728,
+    "sha256": "3b9b58421977ae2a5fb0f5d4d1bf71702cd97922109a215cab1ba9405e3920ba",
+    "binary_bundled": false,
+    "factory_stock_provenance_established": false,
+    "transferability": "OS number alone insufficient; addresses and active configuration require exact-image validation."
+  },
+  "environment": {
+    "host": "native Linux ARM64",
+    "kernel": "6.12.92-sdm845-nh",
+    "python": "3.14.8",
+    "ghidra": "12.1.4_DEV",
+    "ghidra_language": "PowerPC:BE:32:e500",
+    "ghidra_language_scope": "SPE decoding/emulation aid, not MCU identity claim"
+  },
+  "pinned_references": [
+    {
+      "name": "UniversalPatcher",
+      "revision": "de421df36e195c3afc45e589aea0210afdf6beff"
+    },
+    {
+      "name": "KernelMPC5566",
+      "revision": "320adc3a18985aff5614f2cd2ce5fc40ac001456",
+      "release": "Version1.1",
+      "kernel_sha256": "f694f67e639db1e4465797545c3cca4b00883bd5f068ae2a3bf3dcd08d97c861"
+    },
+    {
+      "name": "ESP32-ECU-Flasher",
+      "revision": "aa60be5f194e0a10e9be2af068166965ba99f276"
+    },
+    {
+      "name": "E78_14T",
+      "revision": "e254204369505000b63030826f45a90f7398523e"
+    },
+    {
+      "name": "2011-Chevy-Cruze-CAN-DBC",
+      "revision": "2c689bcbb2201985f0f07385580723e9e86dad34"
+    },
+    {
+      "name": "opendbc",
+      "revision": "27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2"
+    },
+    {
+      "name": "GM-ECU-Simulator",
+      "revision": "5436835a4475a979a95680e5030f17acdd7f2069",
+      "execution_status": "Initially source-inspected only; later headless protocol/importer tests recorded in D25, not full stock firmware simulation."
+    }
+  ],
+  "flash_ready": false,
+  "physical_write_validated": false,
+  "interrupted_write_recovery_validated": false,
+  "loaded_tune_validated": false,
+  "discoveries": [
+    {
+      "id": "D01",
+      "title": "Classical CAN and Elmue SLCAN dialect",
+      "evidence_classes": [
+        "source_inspection",
+        "vehicle_observation"
+      ],
+      "status": "verified_for_recorded_setup",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Physical CAN FD and exact board revision unverified.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/rh02-original-read.md",
+          "sha256": "0ec6190b9e10199b99d52777fe0703731fbd5e8135ae22251ab9825b5776f81b",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D02",
+      "title": "Matching main-flash reads and coverage",
+      "evidence_classes": [
+        "vehicle_observation"
+      ],
+      "status": "verified_main_flash_backup",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "64 synthesized ECC-hole bytes; shadow excluded; not a cloning image.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/rh02-original-read.md",
+          "sha256": "0ec6190b9e10199b99d52777fe0703731fbd5e8135ae22251ab9825b5776f81b",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D03",
+      "title": "Pinned loader sequence and post-kernel restoration",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "vehicle_observation"
+      ],
+      "status": "verified_read_path_only",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Restoration from RAM execution is not recovery from damaged flash.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/rh02-original-read.md",
+          "sha256": "0ec6190b9e10199b99d52777fe0703731fbd5e8135ae22251ab9825b5776f81b",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D04",
+      "title": "Installed segment extraction",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "vehicle_observation"
+      ],
+      "status": "exact_image_consistency_verified",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Factory-stock provenance unestablished; raw slice is not a programmer container.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/current-calibration.md",
+          "sha256": "446835f90462ae2f76d50def1751770abaf8f88afcc09b2fa7700aa8bd8e3041",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D05",
+      "title": "Seventeen checksums and mutation detection",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "recorded_checks_verified",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "No assertion that every ECU acceptance criterion is known.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/checksum-audit.md",
+          "sha256": "3a7cd40d620729a69ed65bf6a4db4d10977bd3b05b5ed3b9ee82e3118a02d460",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D06",
+      "title": "Checksum correction and block programming core",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "offline_only",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "No physical write or interrupted-write recovery validation.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/programming-readiness-20261109.md",
+          "sha256": "c7c345d1d7124239e3fa3acf0f047675b32ef06232a8bf7251e4a397833f66eb",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D07",
+      "title": "Donor comparison and exact-image compatibility",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "reference_only",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Matching OS header does not establish matching code or transferable calibration.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/astra-pair-comparison.md",
+          "sha256": "f4adfa8d6fa835feed82b18d03c2e8d5f0739360780e3bf65f3ec5589bf2fe63",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/definition-research.md",
+          "sha256": "2645339b98eb14519dbe7d690e8a944cb9c23584e28ddd259a14c44638d95b92",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D08",
+      "title": "Startup bases and configuration-selected branches",
+      "evidence_classes": [
+        "source_inspection"
+      ],
+      "status": "exact_image_static",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Other-image RAM bases and donor flags are not portable definitions.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/driver-config-trace-20261109.md",
+          "sha256": "5a2b3a8bb00d0c3bd957e3b1aa5991a550f174153d5dd167deeaa0970cd7d4fe",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D09",
+      "title": "Ten static table definitions",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "research_definitions",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Not a full definition set or approved tuning package.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/table-definitions-20261109.md",
+          "sha256": "a78e3b8a053ccfd35d784cdb9e2e20655e2563c0a6743931863bab3319395851",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D10",
+      "title": "Pedal percentage, network selection and speed source",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "saved_capture_analysis"
+      ],
+      "status": "limited_internal_consistency",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "No independent road-speed validation or observed B/C/fallback transitions.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/input-units-and-selection-20261109.md",
+          "sha256": "3891239a359177f9bf70b148d40937c5dca979bd4876af3bc8d11d3b79240b5a",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/speed-pedal-trace-20261109.md",
+          "sha256": "4dfe4bc8cc4f7787e3b757e1d92cbc741fbe4474833b10d0861cfcadda93dc9c",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D11",
+      "title": "Power-to-torque conversion, modifiers and arbitration",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "selected_paths_traced",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Complete runtime factor semantics, transitions and schedule periods unfinished.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/output-units-20261109.md",
+          "sha256": "94c766dd1ad3bbf3fbedc1858e12aa5857dd263031458b7181c831a6112e62bd",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/table-definitions-20261109.md",
+          "sha256": "a78e3b8a053ccfd35d784cdb9e2e20655e2563c0a6743931863bab3319395851",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-conversion-fallback-20261109.md",
+          "sha256": "7b1e020a0a1c785bf8c6cc57f51e3079c7bcb599ef841f20235890f0bdffe7b2",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D12",
+      "title": "Engine-off broadcast and diagnostic input consistency",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "vehicle_observation"
+      ],
+      "status": "limited_engine_off_points",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Same-system consistency is not independent sensor calibration or loaded validation.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-input-results-20261109.md",
+          "sha256": "75c0f930e23bc778edef8e5fd28d80e856e71437910a1f539fa3a5c878cde6e9",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D13",
+      "title": "Internal driver-request diagnostic channels",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "vehicle_observation"
+      ],
+      "status": "channel_access_verified",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Saturated endpoints and internal requests are not measured engine output.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-driver-requests-20261109.md",
+          "sha256": "55881032ad55713f01b1b89f482048883a7cc45d3e6726a7eefb5c5a1ce621a9",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D14",
+      "title": "Fallback flag and fixed stock RAM reads",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "vehicle_observation"
+      ],
+      "status": "fixed_allowlist_verified",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "No arbitrary address probing; sequential zero-point observations only.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-conversion-fallback-20261109.md",
+          "sha256": "7b1e020a0a1c785bf8c6cc57f51e3079c7bcb599ef841f20235890f0bdffe7b2",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-stock-ram-20261109.md",
+          "sha256": "d8be2da8c2596724dbc89a1d8de1ef72e44ad9fd33cf06adf158c7ab8b8331db",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D15",
+      "title": "Stationary raw pedal-map comparison",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "vehicle_observation"
+      ],
+      "status": "broader_coverage_inconclusive",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Four eligible groups matched, only one nonzero level; whole-map validation false.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-pedal-map-20261109.md",
+          "sha256": "81d41eb6ba3baa506a721b76dbea8c8f0c3b3eaec43f01c6af5469f0f9a1c619",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D16",
+      "title": "Localized pedal-response offline candidate",
+      "evidence_classes": [
+        "offline_test"
+      ],
+      "status": "experimental_not_flash_ready",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "No candidate vehicle/loaded test; A/B/C transition implications unresolved.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/analysis/pedal-response-r01-20261109T235847Z/REVIEW.md",
+          "sha256": "1f2aa3ebbc8a33f6d11be833efd7ce0464f2ad5057eb285973aef8a897106702",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D17",
+      "title": "DFCO delay and ramp structures",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "partial_static_trace",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Timer units, selectors, fuel-cut command and full overrun behavior unfinished.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/overrun-controls-20261110.md",
+          "sha256": "60b9e092a27e6efe437c157f60dfc0795043be62fb0667d70873cf7465cf1e58",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D18",
+      "title": "Minimum-spark map and clamp path",
+      "evidence_classes": [
+        "source_inspection"
+      ],
+      "status": "partial_static_trace",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Minimum limit is not a commanded overrun angle; no crackle calibration.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/spark-control-20261110.md",
+          "sha256": "39d0a081318967f58efe70dc64f49645187e171e872c7126b762467f03775db5",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D19",
+      "title": "Isolated lookup and conversion instruction emulation",
+      "evidence_classes": [
+        "isolated_instruction_emulation"
+      ],
+      "status": "bounded_cases_passed",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Not full ECU, peripheral, combustion or complete spark-task simulation.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/spark-control-20261110.md",
+          "sha256": "39d0a081318967f58efe70dc64f49645187e171e872c7126b762467f03775db5",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D20",
+      "title": "Third-party and test-harness capability boundaries",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "capabilities_separated",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Downloaded simulator source inspected only; no universal E78 writer/recovery claim.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/research-findings.md",
+          "sha256": "40c34b903e5a6fc1cb4d6bb76fdde0f669dba9546ecc3cc3c0d4927396a7b767",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/programming-readiness-20261109.md",
+          "sha256": "c7c345d1d7124239e3fa3acf0f047675b32ef06232a8bf7251e4a397833f66eb",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/spark-control-20261110.md",
+          "sha256": "39d0a081318967f58efe70dc64f49645187e171e872c7126b762467f03775db5",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D21",
+      "title": "Rejected shortcuts and unresolved baseline",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test",
+        "saved_capture_analysis",
+        "vehicle_observation"
+      ],
+      "status": "negative_evidence_preserved",
+      "scope": "exact analyzed image unless explicitly adapter/host or reference scoped",
+      "boundary": "Recorded failures have stage-specific causes; fault diagnosis and loaded baseline remain unresolved.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/rh02-original-read.md",
+          "sha256": "0ec6190b9e10199b99d52777fe0703731fbd5e8135ae22251ab9825b5776f81b",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/passive-decode.md",
+          "sha256": "3a179c296992e7d54a2a5c0048c0b6f13df5ce3497842451e5930e9d76d3bda4",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/astra-pair-comparison.md",
+          "sha256": "f4adfa8d6fa835feed82b18d03c2e8d5f0739360780e3bf65f3ec5589bf2fe63",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-conversion-fallback-20261109.md",
+          "sha256": "7b1e020a0a1c785bf8c6cc57f51e3079c7bcb599ef841f20235890f0bdffe7b2",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/runtime-pedal-map-20261109.md",
+          "sha256": "81d41eb6ba3baa506a721b76dbea8c8f0c3b3eaec43f01c6af5469f0f9a1c619",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/overrun-controls-20261110.md",
+          "sha256": "60b9e092a27e6efe437c157f60dfc0795043be62fb0667d70873cf7465cf1e58",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/spark-control-20261110.md",
+          "sha256": "39d0a081318967f58efe70dc64f49645187e171e872c7126b762467f03775db5",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D22",
+      "title": "Base spark exact-image lookup/blend definitions",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "qualified_research",
+      "scope": "exact-image unless separately protocol-only",
+      "boundary": "3831 isolated original-instruction cases; physical calibration/loaded response remain unvalidated.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/base-spark-definition-20261112.md",
+          "sha256": "dfa4d8dc56db20d896202ebdc4fc6e54c5cef5715dfee24bcbfce5d1525f0c16",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D23",
+      "title": "VCP spark contribution and catalog108",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "qualified_research",
+      "scope": "exact-image unless separately protocol-only",
+      "boundary": "3719 isolated original-instruction cases plus18 arithmetic checks; desired cam targets remain unresolved.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/vvt-spark-dependencies-20261112.md",
+          "sha256": "bac0967fa06057f0f652676ba3c12803d48abcdb83cb73733a5240f93cbe9662",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D24",
+      "title": "Matched A/B/C experimental pedal draft",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "qualified_research",
+      "scope": "exact-image unless separately protocol-only",
+      "boundary": "378 cells/1030 bytes; source candidate is not a validated92-AKI tune; portable reproduction tested separately.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/tune-draft-20261112.md",
+          "sha256": "776fc68686c7a861683d7a10eaea487a6485d18719c7c913c4cc85563cf175a7",
+          "publicly_bundled": false
+        }
+      ]
+    },
+    {
+      "id": "D25",
+      "title": "Protocol simulation and modeled programming/return",
+      "evidence_classes": [
+        "source_inspection",
+        "offline_test"
+      ],
+      "status": "qualified_research",
+      "scope": "exact-image unless separately protocol-only",
+      "boundary": "Headless protocol tests and separately modeled loader/stock fragments; no full ECU simulation or physical write/recovery proof.",
+      "sources": [
+        {
+          "private_collection_path": "cruze-e78-research/docs/bcm-access-selection-20261111.md",
+          "sha256": "3a854387f653ab00a5ffb932cf0165f5ac5ad6c940fdd72603f9f1f61a950cd0",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/recovery-host-inventory-20261112.md",
+          "sha256": "3ac9906ff678c5217979131edf3f0efb6808ba8985423f9d50fadaa27d4ca49c",
+          "publicly_bundled": false
+        },
+        {
+          "private_collection_path": "cruze-e78-research/docs/recovery-stock-return-20261112.md",
+          "sha256": "08faf7907ce2c42f3fb962d107160fd62cced24e4a28fc19b59318d457399e80",
+          "publicly_bundled": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schema": "e78-pedal-profile-v1",
+  "name": "Mid-pedal response draft r02",
+  "original_sha256": "3b9b58421977ae2a5fb0f5d4d1bf71702cd97922109a215cab1ba9405e3920ba",
+  "tables": [
+    "pedal_a",
+    "pedal_b",
+    "pedal_c"
+  ],
+  "input_pedal_percent": [
+    0,
+    2,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    28,
+    32,
+    38,
+    44,
+    50,
+    62,
+    74,
+    86,
+    100
+  ],
+  "stock_equivalent_pedal_percent": [
+    0,
+    2,
+    4,
+    8,
+    12,
+    16,
+    20,
+    25,
+    30,
+    35,
+    42,
+    49,
+    56,
+    68,
+    78,
+    88,
+    100
+  ],
+  "speed_weight": {
+    "zero_through_kmh": 10,
+    "full_from_kmh": 30
+  },
+  "parameter_basis": "Experimental shape example from the worked profile, not validated engine/transmission limits or an octane tune. Retains stock requests through20% input, at100%, and at speeds<=10km/h.",
+  "complete_aggressive_power_tune": false,
+  "vehicle_validated": false,
+  "flash_ready": false
+}

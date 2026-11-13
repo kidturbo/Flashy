@@ -1,0 +1,49 @@
+{
+  "upstream": {
+    "repository": "https://github.com/joukoy/UniversalPatcher",
+    "revision": "de421df36e195c3afc45e589aea0210afdf6beff",
+    "source_path": "XML/SegmentSeek-e78.xml",
+    "snapshot_note": "Existing saved snapshot; UTF-8 with line endings normalized to LF",
+    "snapshot_sha256": "7e6a179d371d54e36a355fdf2b7449d26ff83c80b0d475b053a7970ab64bd4b9",
+    "license_path": "UniversalPatcher-LICENSE",
+    "license_sha256": "e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052"
+  },
+  "local_source_files": [
+    {
+      "path": "tools/e78_pedal_edit.py",
+      "source_path": "cruze-e78-research/tools/e78_pedal_edit.py",
+      "source_sha256": "dc3d2b275c59c2ca502478c60665408041e7ba0d3e74b1508e926274bfd50b72",
+      "changes": "Original import preserved behavior; Black formatting applied for Flashy integration (see integration-provenance.json)"
+    },
+    {
+      "path": "tools/e78_candidate.py",
+      "source_path": "cruze-e78-research/tools/e78_candidate.py",
+      "source_sha256": "692f9fbb3a16ede74e27020c582eb6863d14e81f16fc552ef71a53e56043fb3b",
+      "changes": "Private baseline path configurable via E78_PRIVATE_BASELINE; signature path portable under vendor/; Black formatting applied for Flashy integration (see integration-provenance.json)"
+    },
+    {
+      "path": "tools/e78_programming.py",
+      "source_path": "cruze-e78-research/tools/e78_programming.py",
+      "source_sha256": "13a10f79024264042f9637d3a971b7bfe50c357f1e86fdebf24662014964136f",
+      "changes": "Original import preserved behavior; Black formatting applied for Flashy integration (see integration-provenance.json)"
+    },
+    {
+      "path": "tools/e78_read_protocol.py",
+      "source_path": "cruze-e78-research/tools/e78_read_protocol.py",
+      "source_sha256": "ad8fae08e859b7dfcf77ad912f22c9c739fa57b7a66756c0955f71b834db67fd",
+      "changes": "Original import preserved behavior; Black formatting applied for Flashy integration (see integration-provenance.json)"
+    },
+    {
+      "path": "tools/audit_e78_checksums.py",
+      "source_path": "cruze-e78-research/tools/audit_e78_checksums.py",
+      "source_sha256": "7af4c79fcf090d5adf741bb8bcc5677b5b0f5acb698b2ed09a8eda6cd56ec3eb",
+      "changes": "Original import preserved behavior; Black formatting applied for Flashy integration (see integration-provenance.json)"
+    },
+    {
+      "path": "tools/extract_verified_calibration.py",
+      "source_path": "cruze-e78-research/tools/extract_verified_calibration.py",
+      "source_sha256": "38a8371c1413ec72f713078925ef6e001a97843c042853a4c314f8763c603f73",
+      "changes": "Original import preserved behavior; Black formatting applied for Flashy integration (see integration-provenance.json)"
+    }
+  ]
+}

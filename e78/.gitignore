@@ -1,0 +1,25 @@
+# Private ECU/project material is never a release input.
+/private/
+/originals/
+/analysis/
+/sessions/
+/reference-firmware/
+*.bin
+*.hex
+*.srec
+*.mot
+*.elf
+*.pcap
+*.pcapng
+*.log
+*.db
+*.sqlite*
+*.gpr
+*.rep/
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+*.pem
+*.key

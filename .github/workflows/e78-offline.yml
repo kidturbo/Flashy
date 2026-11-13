@@ -1,0 +1,30 @@
+name: E78 offline checks
+on:
+  push:
+    paths: ['e78/**', '.github/workflows/e78-offline.yml']
+  pull_request:
+    paths: ['e78/**', '.github/workflows/e78-offline.yml']
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.14']
+    defaults:
+      run:
+        working-directory: e78
+    env:
+      PYTHONPATH: tools
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m black --check tools tests scripts examples
+      - run: python examples/synthetic/demo.py
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/validate_release.py

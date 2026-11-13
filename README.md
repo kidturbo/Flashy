@@ -12,6 +12,31 @@ A J2534-style Pass-Thru tool for **diagnostics, reversing, and programming autom
 
 **[Download Latest Release](https://github.com/kidturbo/Flashy/releases/latest)** · **[Wiki](https://github.com/kidturbo/Flashy/wiki)** · **[Report a Bug](https://github.com/kidturbo/Flashy/issues/new?template=bug_report.md)** · **[Request a Feature](https://github.com/kidturbo/Flashy/issues/new?template=feature_request.md)**
 
+## E78 research and offline calibration tools
+
+The separate [E78 host toolkit](e78/README.md) adds exact-image extraction,
+checksum correction, pedal worksheets and matched A/B/C candidate generation,
+108 research definition records, physical-block planning, and injected-transport
+read/programming state machines with offline tests. Its README covers setup,
+commands, provenance, test scope, and the remaining hardware work.
+
+```sh
+cd e78
+python3 examples/synthetic/demo.py
+PYTHONPATH=tools python3 -m unittest discover -s tests -v
+```
+
+These commands need no ECU or private firmware. Some integration tests explicitly
+skip without their separately supplied inputs. The worked RH02 original read
+is documented evidence from another transport; E78 Feather integration and
+physical writing/recovery remain unvalidated. No E78 live launcher or kernel
+binary is included. [Protocol differences and completion status](e78/docs/flashy-integration.md)
+explain why the two kernel dialects are not interchangeable.
+
+The standalone `e78/` component is distributed under its
+[GPL license](e78/LICENSE) and retained vendor notices. Flashy's existing
+firmware and other MIT components retain their existing license.
+
 ## Quick Start
 
 1. **Get the hardware** — [Feather M4 CAN Express](https://www.adafruit.com/product/4759) + [AdaLogger FeatherWing](https://www.adafruit.com/product/2922) (recommended)
@@ -292,7 +317,11 @@ Found a bug? **[Open an issue](https://github.com/kidturbo/Flashy/issues/new?tem
 
 ## License
 
-Source code in this repository is released under the [MIT License](LICENSE). See individual files for any additional notices. The vendored `lib/isotp/` is from [lishen2/isotp-c](https://github.com/lishen2/isotp-c) (MIT).
+Flashy's firmware and original tools are released under the [MIT License](LICENSE).
+The separate [E78 host toolkit](e78/README.md) uses [GPL-3.0-or-later](e78/LICENSE)
+with retained vendor notices; it is not linked into the Feather firmware build.
+See individual files for additional notices. The vendored `lib/isotp/` is from
+[lishen2/isotp-c](https://github.com/lishen2/isotp-c) (MIT).
 
 ### Third-party material
 
